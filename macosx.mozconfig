@@ -1,0 +1,6 @@
+. $topsrcdir/browser/config/mozconfig
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-mac-x86
+mk_add_options MOZ_MAKE_FLAGS="-s -j4"
+ac_add_options --enable-debug
+ac_add_options --enable-tests
+ac_add_options --disable-optimize
