@@ -1,0 +1,7 @@
+.DS_Store
+*.pyc
+
+/.mozconfig*
+/configure
+/js/src/configure
+/obj-*/
