@@ -1,0 +1,9 @@
+[alias]
+show = log -pr
+export = export -g
+
+[ui]
+username = Kartikaya Gupta <kgupta@mozilla.com>
+
+[extensions]
+mq =
