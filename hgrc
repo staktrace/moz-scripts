@@ -1,9 +1,20 @@
 [alias]
 show = log -pr
-export = export -g
+
+[defaults]
+qnew = -U
 
 [ui]
 username = Kartikaya Gupta <kgupta@mozilla.com>
 
 [extensions]
 mq =
+record =
+
+[diff]
+unified = 8
+git = 1
+showfunc = 1
+
+[paths]
+try = ssh://hg.mozilla.org/try/
