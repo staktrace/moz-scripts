@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+QUEUE=$(hg qqueue | grep active | cut -d " " -f 1)
+QUEUE=${QUEUE// /}
+CSET=$(hg log -l 1 | grep "changeset:" | cut -d ":" -f 2)
+CSET=${CSET// /}
+TAG=$(hg log -l 1 | grep "tag:" | head -1 | cut -d ":" -f 2)
+TAG=${TAG// /}
+NAME="bld_${QUEUE}_${CSET}_${TAG}"
+FOLDER="$HOME/zspace/builds/$NAME"
+if [ -e "$FOLDER" ]; then
+    bkn "$FOLDER"
+fi
+mkdir "$FOLDER"
+cp $HOME/zspace/builds/fennec-*.en-US.android-arm.apk $FOLDER
+cp -R .hg/patches-$QUEUE $FOLDER/
