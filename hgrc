@@ -18,3 +18,4 @@ showfunc = 1
 
 [paths]
 try = ssh://hg.mozilla.org/try/
+birch = ssh://hg.mozilla.org/projects/birch
