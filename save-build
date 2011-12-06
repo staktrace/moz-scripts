@@ -14,3 +14,4 @@ fi
 mkdir "$FOLDER"
 cp $HOME/zspace/builds/fennec-*.en-US.android-arm.apk $FOLDER
 cp -R .hg/patches-$QUEUE $FOLDER/
+hg diff > $FOLDER/unstaged.diff
