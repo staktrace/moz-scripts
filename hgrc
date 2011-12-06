@@ -10,6 +10,8 @@ username = Kartikaya Gupta <kgupta@mozilla.com>
 [extensions]
 mq =
 record =
+hgext.bookmarks =
+hggit =
 
 [diff]
 unified = 8
