@@ -18,4 +18,6 @@ showfunc = 1
 
 [paths]
 try = ssh://hg.mozilla.org/try/
-birch = ssh://hg.mozilla.org/projects/birch
+birch = ssh://hg.mozilla.org/projects/birch/
+m-i = ssh://hg.mozilla.org/integration/mozilla-inbound/
+m-c = https://hg.mozilla.org/mozilla-central/
