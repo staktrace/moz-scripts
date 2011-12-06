@@ -5,8 +5,7 @@ mk_add_options MOZ_MAKE_FLAGS="-s -j16"
 
 ac_add_options --enable-debug
 ac_add_options --enable-tests
-ac_add_options --enable-ccache
-ac_add_options --with-ccache=/usr/bin/ccache
+ac_add_options --with-ccache
 ac_add_options --disable-crashreporter
 ac_add_options --disable-install-strip
 ac_add_options --disable-elf-hack
