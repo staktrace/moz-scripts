@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+NAME=$(adb shell "ls /sdcard/ScreenCapture" | tail -1 | tr -d '\r')
+if [ -z $1 ]; then
+    TARGET=$NAME
+else
+    TARGET="$1.jpg"
+fi
+adb pull /sdcard/ScreenCapture/$NAME $TARGET
+scp $TARGET people:www/tmp/
+echo "https://people.mozilla.com/~kgupta/tmp/$TARGET"
