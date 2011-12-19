@@ -10,8 +10,6 @@ username = Kartikaya Gupta <kgupta@mozilla.com>
 [extensions]
 mq =
 record =
-hgext.bookmarks =
-hggit =
 
 [diff]
 unified = 8
@@ -22,4 +20,4 @@ showfunc = 1
 try = ssh://hg.mozilla.org/try/
 birch = ssh://hg.mozilla.org/projects/birch/
 m-i = ssh://hg.mozilla.org/integration/mozilla-inbound/
-m-c = https://hg.mozilla.org/mozilla-central/
+m-c = ssh://hg.mozilla.org/mozilla-central/
