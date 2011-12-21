@@ -1,7 +1,7 @@
 . $topsrcdir/browser/config/mozconfig
 
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
-mk_add_options MOZ_MAKE_FLAGS="-s -j16"
+mk_add_options MOZ_MAKE_FLAGS="-s -j1"
 
 ac_add_options --enable-debug
 ac_add_options --enable-tests
