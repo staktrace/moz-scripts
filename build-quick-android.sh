@@ -14,4 +14,4 @@ fi;
     && make package \
     && popd \
     && cp obj-android/dist/fennec*.apk $HOME/zspace/builds/
-) | tee obj-android/build.log
+) 2>&1 | tee obj-android/build.log
