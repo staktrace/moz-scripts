@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+hg revert $*
+mv *.orig $HOME/zspace/backups/

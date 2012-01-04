@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+find . -name "*.rej" |
+while read file; do
+    echo "Deleting $file";
+    rm $file
+done
