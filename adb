@@ -1,1 +1,1 @@
-/home/kats/android/sdk/platform-tools/adb
+/Users/kats/android/sdk/platform-tools/adb
