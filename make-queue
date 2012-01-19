@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+QUEUE=${1?"Usage: $0 <queue-name>"}
+
+NUMPATCHES=$(git log master..HEAD --oneline | cut -d " " -f 1 | wc -l)
+NUMPATCHES=$((NUMPATCHES))
+for i in $(git log master..HEAD --oneline | cut -d " " -f 1); do
+    git hgp $i > ~/zspace/patches/$QUEUE-$NUMPATCHES
+    NUMPATCHES=$((NUMPATCHES - 1))
+done
