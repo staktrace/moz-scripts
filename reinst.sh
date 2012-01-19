@@ -12,5 +12,5 @@ else
     echo "Installing $FILE" > /dev/stderr
 fi
 
-adb uninstall org.mozilla.fennec_$USER
-adb install $FILE
+# adb uninstall org.mozilla.fennec_$USER # not sure what this will do to FF sync, be careful
+adb install -r $FILE
