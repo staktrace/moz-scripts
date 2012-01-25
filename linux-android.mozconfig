@@ -1,5 +1,7 @@
 . $topsrcdir/browser/config/mozconfig
 
+export MOZ_OLD_LINKER=1
+
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
 mk_add_options MOZ_MAKE_FLAGS="-s -j1"
 
