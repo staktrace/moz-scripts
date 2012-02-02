@@ -15,3 +15,5 @@ fi;
     && popd \
     && cp obj-android/dist/fennec*.apk $HOME/zspace/builds/
 ) 2>&1 | tee obj-android/build.log
+
+exit ${PIPESTATUS[0]}
