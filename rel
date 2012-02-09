@@ -6,26 +6,11 @@ if [ ! -d obj-debug -o ! -d obj-ndebug -o ! -h .mozconfig ]; then
 fi
 
 UNAME=$(uname)
-if [ -z "$1" ]; then
-    if [ "$UNAME" == "Darwin" ]; then
-        ln -sf $HOME/zspace/configs/mozconfig.$UNAME-android-ndebug .mozconfig
-    elif [ "$UNAME" == "Linux" ]; then
-        ln -sf $HOME/zspace/configs/linux-android-ndebug.mozconfig .mozconfig
-    else
-        echo "Unsupported platform!" > /dev/stderr
-        exit 2;
-    fi
-    rm obj-android
-    ln -s obj-ndebug obj-android
-else
-    if [ "$UNAME" == "Darwin" ]; then
-        ln -sf $HOME/zspace/configs/mozconfig.$UNAME-android-debug .mozconfig
-    elif [ "$UNAME" == "Linux" ]; then
-        ln -sf $HOME/zspace/configs/linux-android.mozconfig .mozconfig
-    else
-        echo "Unsupported platform!" > /dev/stderr
-        exit 3;
-    fi
-    rm obj-android
-    ln -s obj-debug obj-android
+TARGET=ndebug
+if [ -n "$1" ]; then
+    TARGET=debug
 fi
+
+ln -sf $HOME/zspace/configs/mozconfig.$UNAME-android-$TARGET .mozconfig
+rm obj-android
+ln -s obj-$TARGET obj-android
