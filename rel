@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+if [ ! -d obj-debug -o ! -d obj-ndebug -o ! -f .mozconfig ]; then
+    echo "Error: please run from the top source directory!" > /dev/stderr
+    exit 1;
+fi
+
+UNAME=$(uname)
+if [ -z "$1" ]; then
+    if [ "$UNAME" == "Darwin" ]; then
+        ln -sf $HOME/zspace/configs/macosx-android-ndebug.mozconfig .mozconfig
+    else
+        echo "Unsupported platform!" > /dev/stderr
+        exit 2;
+    fi
+    rm obj-android
+    ln -s obj-ndebug obj-android
+else
+    if [ "$UNAME" == "Darwin" ]; then
+        ln -sf $HOME/zspace/configs/macosx-android.mozconfig .mozconfig
+    else
+        echo "Unsupported platform!" > /dev/stderr
+        exit 3;
+    fi
+    rm obj-android
+    ln -s obj-debug obj-android
+fi
