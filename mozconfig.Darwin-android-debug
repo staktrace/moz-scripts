@@ -23,4 +23,3 @@ ac_add_options --with-android-platform="$HOME/android/ndk/platforms/android-5/ar
 # Android options
 ac_add_options --enable-application=mobile/android
 ac_add_options --target=arm-linux-androideabi
-ac_add_options --with-endian=little

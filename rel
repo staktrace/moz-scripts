@@ -8,7 +8,7 @@ fi
 UNAME=$(uname)
 if [ -z "$1" ]; then
     if [ "$UNAME" == "Darwin" ]; then
-        ln -sf $HOME/zspace/configs/macosx-android-ndebug.mozconfig .mozconfig
+        ln -sf $HOME/zspace/configs/mozconfig.$UNAME-android-ndebug .mozconfig
     elif [ "$UNAME" == "Linux" ]; then
         ln -sf $HOME/zspace/configs/linux-android-ndebug.mozconfig .mozconfig
     else
@@ -19,7 +19,7 @@ if [ -z "$1" ]; then
     ln -s obj-ndebug obj-android
 else
     if [ "$UNAME" == "Darwin" ]; then
-        ln -sf $HOME/zspace/configs/macosx-android.mozconfig .mozconfig
+        ln -sf $HOME/zspace/configs/mozconfig.$UNAME-android-debug .mozconfig
     elif [ "$UNAME" == "Linux" ]; then
         ln -sf $HOME/zspace/configs/linux-android.mozconfig .mozconfig
     else
