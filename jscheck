@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+grep -v "^#" $1 > ~/tmp/check-this.js
+js.$(uname) -c ~/tmp/check-this.js

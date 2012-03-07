@@ -9,7 +9,8 @@ if [ ! -d "obj-android" ]; then
     mkdir obj-android
 fi;
 
-(make -f client.mk \
+(jscheck mobile/android/chrome/content/browser.js \
+    && make -f client.mk \
     && pushd obj-android \
     && make package \
     && popd \
