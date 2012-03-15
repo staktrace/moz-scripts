@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+if [ "$1" == "shell" ]; then
+    shift;
+    adb-real shell "echo $* | su"
+else
+    adb-real $*
+fi
