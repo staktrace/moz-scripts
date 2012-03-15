@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+NUMPATCHES=${1-1}
+
+git log --oneline -$NUMPATCHES |
+awk '{print NR, $1}' |
+while read cnt sha; do
+    git hgp $sha > ~/zspace/patches/$cnt-$sha
+done
