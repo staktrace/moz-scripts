@@ -28,5 +28,6 @@ elif [ -d ".git" ]; then
     mkdir "$FOLDER"
     cp $HOME/zspace/builds/fennec-*.en-US.android-arm.apk $FOLDER
     git format-patch -o $FOLDER master
+    git diff --cached > $FOLDER/staged.diff
     git diff > $FOLDER/unstaged.diff
 fi;
