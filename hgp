@@ -3,7 +3,7 @@
 NUMPATCHES=${1-1}
 BRANCH=$(git branch | grep "^*" | cut -d " " -f 2)
 
-git log --oneline -$NUMPATCHES |
+git log --reverse --oneline -$NUMPATCHES |
 awk '{print NR, $1}' |
 while read cnt sha; do
     git hgp $sha > ~/zspace/patches/$cnt-$BRANCH-$sha
