@@ -3,6 +3,9 @@
 NUMPATCHES=${1-1}
 BRANCH=$(git branch | grep "^*" | cut -d " " -f 2)
 
+mkdir ~/zspace/patches/old
+mv ~/zspace/patches/*-$BRANCH-* ~/zspace/patches/old/
+
 git log --reverse --oneline -$NUMPATCHES |
 awk '{print NR, $1}' |
 while read cnt sha; do
