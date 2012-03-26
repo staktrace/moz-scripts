@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-USAGE="Usage: $0 <last-cset-to-keep> <last-cset-to-backout>"
-LASTGOOD=${1?$USAGE}
-LASTBAD=${2?$USAGE}
-hg diff -r $LASTBAD -r $LASTGOOD | hg qimport - -n backout
+USAGE="Usage: $0 <last-cset-to-backout> [<last-cset-to-keep>]"
+LASTBAD=${1?$USAGE}
+LASTGOOD=${2:-"parents($LASTBAD)"}
+hg diff -r "$LASTBAD" -r "$LASTGOOD" | hg qimport - -n backout
