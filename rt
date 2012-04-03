@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+export TEST_PATH=testCheck
+for ((i = 0; i < 5; i++)); do
+    make mochitest-robotium;
+done
+export TEST_PATH=testCheck2
+for ((i = 0; i < 5; i++)); do
+    make mochitest-robotium;
+done
