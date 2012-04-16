@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+USAGE="$0 <rev> <relative-path-to-file>"
+REV=${1?$USAGE}
+FILE=${2?$USAGE}
+git show $REV:./$FILE
