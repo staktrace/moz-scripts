@@ -13,7 +13,7 @@ ac_add_options --disable-elf-hack
 
 # Android SDK/NDK
 ac_add_options --with-android-ndk="$HOME/android/ndk"
-ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-13"
+ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-14"
 ac_add_options --with-android-version=5
 ac_add_options --with-android-tools="$HOME/android/sdk/tools"
 ac_add_options --with-android-toolchain="$HOME/android/ndk/toolchains/arm-linux-androideabi-4.4.3/prebuilt/linux-x86"
