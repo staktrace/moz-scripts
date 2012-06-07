@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+adb logcat -v time | tee log | grep -i -f ~/default.greps
