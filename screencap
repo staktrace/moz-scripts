@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-TARGET="${1:-'screenshot'}.png"
+TARGET="${1:-"screenshot"}.png"
 monkeyrunner $HOME/zspace/configs/screenshot.py
 scp screen.png people:www/tmp/$TARGET
 echo "https://people.mozilla.com/~kgupta/tmp/$TARGET"
