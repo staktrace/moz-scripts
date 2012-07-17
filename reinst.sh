@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-FILE=${1-"./fennec-16.0a1.en-US.android-arm.apk"}
+FILE=${1-"./fennec-17.0a1.en-US.android-arm.apk"}
 if [ ! -f "$FILE" ]; then
-    FILE="$HOME/zspace/builds/fennec-16.0a1.en-US.android-arm.apk"
+    FILE="$HOME/zspace/builds/fennec-17.0a1.en-US.android-arm.apk"
     echo "Falling back to $FILE" > /dev/stderr
     if [ ! -f "$FILE" ]; then
         echo "Error: fallback $FILE not found!" > /dev/stderr
