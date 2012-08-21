@@ -16,7 +16,7 @@ ac_add_options --with-android-ndk="$HOME/android/ndk"
 ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-16"
 ac_add_options --with-android-version=5
 ac_add_options --with-android-tools="$HOME/android/sdk/tools"
-ac_add_options --with-android-toolchain="$HOME/android/ndk/toolchains/arm-linux-androideabi-4.4.3/prebuilt/linux-x86"
+ac_add_options --with-android-toolchain="$HOME/android/ndk/toolchains/arm-linux-androideabi-4.6.3/prebuilt/linux-x86"
 ac_add_options --with-android-platform="$HOME/android/ndk/platforms/android-5/arch-arm"
 
 # Android options
