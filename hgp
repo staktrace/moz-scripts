@@ -2,16 +2,18 @@
 
 # Usage: $0 [numpatches [branch]]
 
+DESTDIR=$HOME/zspace/patches
+
 BRANCH=${2:-$(git branch | grep "^*" | cut -d " " -f 2)}
 FBRANCH=${BRANCH//\//-}     # filename-safe branch name
 
 NUMPATCHES=${1-$(git log --oneline master..$BRANCH | wc -l)}
 
-mkdir ~/zspace/patches/old 2>/dev/null
-mv ~/zspace/patches/*-$FBRANCH-* ~/zspace/patches/old/ 2>/dev/null
+mkdir -p $DESTDIR/old 2>/dev/null
+mv $DESTDIR/*-$FBRANCH-* $DESTDIR/old/ 2>/dev/null
 
 git log --reverse --oneline -n $NUMPATCHES $BRANCH -- |
 awk '{print NR, $1}' |
 while read cnt sha; do
-    git hgp $sha > ~/zspace/patches/$cnt-$FBRANCH-$sha
+    git hgp $sha > $DESTDIR/$cnt-$FBRANCH-$sha
 done
