@@ -13,7 +13,7 @@ if [ -d ".hg" ]; then
         bkn "$FOLDER"
     fi
     mkdir "$FOLDER"
-    cp $HOME/zspace/builds/fennec-*.en-US.android-arm.apk $FOLDER
+    cp obj-android/dist/fennec*.apk $FOLDER
     cp -R .hg/patches-$QUEUE $FOLDER/
     hg diff > $FOLDER/unstaged.diff
 elif [ -d ".git" ]; then
@@ -26,7 +26,7 @@ elif [ -d ".git" ]; then
         bkn "$FOLDER"
     fi
     mkdir "$FOLDER"
-    cp $HOME/zspace/builds/fennec-*.en-US.android-arm.apk $FOLDER
+    cp obj-android/dist/fennec*.apk $FOLDER
     git format-patch -o $FOLDER master
     git diff --cached > $FOLDER/staged.diff
     git diff > $FOLDER/unstaged.diff
