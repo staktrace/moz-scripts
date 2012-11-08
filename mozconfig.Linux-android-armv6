@@ -23,7 +23,6 @@ export MOZ_PKG_SPECIAL=armv6
 ac_add_options --disable-ion
 
 # Build options
-ac_add_options --enable-warnings-as-errors
 ac_add_options --enable-debug
 ac_add_options --disable-optimize
 ac_add_options --disable-crashreporter
