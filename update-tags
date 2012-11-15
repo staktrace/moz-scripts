@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+pushd $HOME/zspace/mozilla-git
+ctags.$(uname) -R -f tags --exclude=obj-android --exclude=obj-android-debug --exclude=obj-host .
+popd
