@@ -12,7 +12,7 @@ ac_add_options --disable-crashreporter
 
 # Android SDK/NDK
 ac_add_options --with-android-ndk="$HOME/android/ndk"
-ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-16"
+ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-17"
 ac_add_options --with-android-version=5
 ac_add_options --with-android-tools="$HOME/android/sdk/tools"
 ac_add_options --with-android-toolchain="$HOME/android/ndk/toolchains/arm-linux-androideabi-4.6.3/prebuilt/darwin-x86_64"
