@@ -6,16 +6,13 @@ mk_add_options MOZ_MAKE_FLAGS="-j9"
 # Build Fennec
 ac_add_options --enable-application=mobile/android
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
-ac_add_options --with-system-zlib
 
 # Android
 ac_add_options --target=arm-linux-androideabi
 ac_add_options --with-android-ndk="$HOME/android/ndk"
-ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-16"
+ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-17"
 ac_add_options --with-android-version=5
-ac_add_options --with-android-tools="$HOME/android/sdk/tools"
 ac_add_options --with-android-toolchain="$HOME/android/ndk/toolchains/arm-linux-androideabi-4.6.3/prebuilt/linux-x86"
-ac_add_options --with-android-platform="$HOME/android/ndk/platforms/android-5/arch-arm"
 
 # ARMv6
 ac_add_options --with-arch=armv6
@@ -25,7 +22,6 @@ ac_add_options --disable-ion
 # Build options
 ac_add_options --enable-debug
 ac_add_options --disable-optimize
-ac_add_options --disable-crashreporter
 ac_add_options --disable-elf-hack
 
 # Use ccache
