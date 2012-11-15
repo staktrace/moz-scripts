@@ -3,4 +3,4 @@
 if [ "$1" == "-c" ]; then
     adb logcat -c;
 fi
-adb logcat -v time | tee log | grep -i -f ~/default.greps
+adb logcat -v time | tee log | grep -v "nscoord_MAX" | grep -i -f ~/default.greps
