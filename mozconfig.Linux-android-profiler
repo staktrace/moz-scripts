@@ -16,7 +16,9 @@ ac_add_options --with-android-toolchain="$HOME/android/ndk/toolchains/arm-linux-
 
 # Build options
 ac_add_options --disable-elf-hack
-STRIP_FLAGS="--strip-debug"
 
 # Use ccache
 ac_add_options --with-ccache
+
+# profiler stuff
+STRIP_FLAGS="--strip-debug"
