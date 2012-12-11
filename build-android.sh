@@ -7,7 +7,7 @@ fi
 
 if [ ! -d "obj-android" ]; then
     mkdir obj-android
-fi;
+fi
 
 (jscheck mobile/android/chrome/content/browser.js \
     && make -f client.mk \
