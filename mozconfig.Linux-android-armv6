@@ -9,10 +9,10 @@ mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
 
 # Android
 ac_add_options --target=arm-linux-androideabi
-ac_add_options --with-android-ndk="$HOME/android/ndk"
+ac_add_options --with-android-ndk="$HOME/android/ndk-r5c"
 ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-17"
 ac_add_options --with-android-version=5
-ac_add_options --with-android-toolchain="$HOME/android/ndk/toolchains/arm-linux-androideabi-4.6/prebuilt/linux-x86"
+ac_add_options --with-android-toolchain="$HOME/android/ndk-r5c/toolchains/arm-linux-androideabi-4.4.3/prebuilt/linux-x86"
 
 # ARMv6
 ac_add_options --with-arch=armv6
@@ -22,7 +22,6 @@ ac_add_options --disable-ion
 # Build options
 ac_add_options --enable-debug
 ac_add_options --disable-optimize
-ac_add_options --disable-elf-hack
 
 # Use ccache
 ac_add_options --with-ccache
