@@ -14,7 +14,7 @@ params = [
     ('parent_pid', ''),
     ('code2', body),
     ('poster', ''),
-    ('expiry', 'd'),
+    ('expiry', 'm'),
     ('paste', 'Send'),
     ('format', fmt),
     ]
