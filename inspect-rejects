@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+SRCFILE=${1?"Usage: $0 <srcfile>"}
+
+ORIGCONTEXT=$(mktemp rejects)
+perl -ne '$fc = substr($_, 0, 1); if (substr($_, 0, 3) eq "---" || $fc eq "+" || $fc eq "@") { } elsif ($fc eq "-" || $fc eq " ") { print substr( $_, 1 ); } else { print STDERR "Do not know what to do with line [$_]"; }' $SRCFILE.rej > $ORIGCONTEXT
+vimdiff $ORIGCONTEXT $SRCFILE
+rm $ORIGCONTEXT
