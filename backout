@@ -3,4 +3,4 @@
 USAGE="Usage: $0 <last-cset-to-backout> [<last-cset-to-keep>]"
 LASTBAD=${1?$USAGE}
 LASTGOOD=${2:-"parents($LASTBAD)"}
-hg diff -r "$LASTBAD" -r "$LASTGOOD" | hg qimport - -n backout
+hg diff -r "$LASTBAD" -r "$LASTGOOD" | hg qimport - -n backout -m "Backout of $LASTGOOD..$LASTBAD"
