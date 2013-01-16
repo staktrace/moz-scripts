@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-awk '!/^#/ { if (hide == 0) print $0 } /^#else/ { hide = 1 } /^#endif/ { hide = 0 } /^#expand / { print substr($0, 8) }' $1 | sed -e 's/@[A-Z_]*@/0/' > ~/tmp/check-this.js
+cat $1 | awk '!/^#/ { if (hide == 0) print $0 } /^#else/ { hide = 1 } /^#endif/ { hide = 0 } /^#expand / { print substr($0, 8) }' | sed -e 's/@[A-Z_]*@/0/' > ~/tmp/check-this.js
 js.$(uname) -c ~/tmp/check-this.js
