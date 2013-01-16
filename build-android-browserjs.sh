@@ -10,9 +10,7 @@ if [ ! -d "obj-android" ]; then
 fi;
 
 (jscheck mobile/android/chrome/content/browser.js \
-    && pushd mobile/android/chrome/content \
-    && scp browser.js people:www/content \
-    && popd
+    && scp ~/tmp/check-this.js people:www/content/browser.js
 ) 2>&1 | tee obj-android/build.log
 
 exit ${PIPESTATUS[0]}
