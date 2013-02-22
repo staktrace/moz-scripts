@@ -21,3 +21,6 @@ ac_add_options --disable-crashreporter
 
 # Use ccache
 ac_add_options --with-ccache
+
+export HOST_CC=/opt/local/bin/gcc-mp-4.7
+export HOST_CXX=/opt/local/bin/g++-mp-4.7
