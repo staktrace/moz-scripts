@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+hg phase -fd qbase
+hg qpop -a
