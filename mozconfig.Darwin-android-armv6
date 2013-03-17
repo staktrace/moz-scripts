@@ -13,17 +13,18 @@ ac_add_options --with-android-ndk="$HOME/android/ndk"
 ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-17"
 ac_add_options --with-android-version=9
 
-# ARMv6 (Thumb)
+# ARMv6
 ac_add_options --with-arch=armv6
 export MOZ_PKG_SPECIAL=armv6
 ac_add_options --disable-ion
-ac_add_options --with-thumb=yes
-ac_add_options --with-thumb-interwork=yes
 
 # Build options
-# ac_add_options --enable-debug
+ac_add_options --enable-debug
 # ac_add_options --disable-optimize
-ac_add_options --disable-elf-hack
+ac_add_options --disable-crashreporter
 
 # Use ccache
 ac_add_options --with-ccache
+
+export HOST_CC=/opt/local/bin/gcc-mp-4.7
+export HOST_CXX=/opt/local/bin/g++-mp-4.7

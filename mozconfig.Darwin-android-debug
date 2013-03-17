@@ -11,8 +11,7 @@ mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
 ac_add_options --target=arm-linux-androideabi
 ac_add_options --with-android-ndk="$HOME/android/ndk"
 ac_add_options --with-android-sdk="$HOME/android/sdk/platforms/android-17"
-ac_add_options --with-android-version=5
-ac_add_options --with-android-toolchain="$HOME/android/ndk/toolchains/arm-linux-androideabi-4.6/prebuilt/darwin-x86"
+ac_add_options --with-android-version=9
 
 # Build options
 ac_add_options --enable-debug
