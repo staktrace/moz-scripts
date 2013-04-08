@@ -11,10 +11,8 @@ fi
 
 (jscheck mobile/android/chrome/content/browser.js \
     && make -f client.mk \
-    && pushd obj-android \
     && echo "make package" \
-    && make package \
-    && popd \
+    && make -C obj-android package \
     && cp obj-android/dist/fennec*.apk $HOME/zspace/builds/ \
     && save-build
 ) 2>&1 | tee obj-android/build.log
