@@ -1,5 +1,5 @@
 mk_add_options MOZ_MAKE_FLAGS="-j9"
-mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-b2g
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-gonk
 mk_add_options NO_AUTOCLOBBER=1
 
 ac_add_options --enable-application=b2g
