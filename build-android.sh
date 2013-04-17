@@ -10,9 +10,8 @@ if [ ! -d "obj-android" ]; then
 fi
 
 (jscheck mobile/android/chrome/content/browser.js \
-    && make -f client.mk \
-    && echo "make package" \
-    && make -C obj-android package \
+    && mach build --verbose \
+    && mach package \
     && cp obj-android/dist/fennec*.apk $HOME/zspace/builds/ \
     && save-build
 ) 2>&1 | tee obj-android/build.log
