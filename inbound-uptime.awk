@@ -50,8 +50,8 @@ BEGIN {
 END {
     totaltime = laststamp - firststamp
     print "Total time:", totaltime
-    print "Downtime (flat):", downtime_flat, "(" (100 * ((totaltime - downtime_flat) / totaltime)) "%)"
-    print "Downtime (weighted):", downtime_weighted, "(" (100 * ((totaltime - downtime_weighted) / totaltime)) "%)"
+    print "Downtime (flat):", downtime_flat, "(" (100 * ( downtime_flat / totaltime)) "%)"
+    print "Downtime (weighted):", downtime_weighted, "(" (100 * (downtime_weighted / totaltime)) "%)"
 }
 
 function timestamp(str) {
