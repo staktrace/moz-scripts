@@ -7,5 +7,5 @@ else
     TARGET="$1.jpg"
 fi
 adb pull /sdcard/ScreenCapture/$NAME $TARGET
-scp $TARGET people:www/tmp/
-echo "https://people.mozilla.com/~kgupta/tmp/$TARGET"
+# scp $TARGET people:www/tmp/
+# echo "https://people.mozilla.com/~kgupta/tmp/$TARGET"
