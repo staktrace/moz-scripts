@@ -6,7 +6,7 @@ mk_add_options MOZ_MAKE_FLAGS="-j9"
 # Build Fennec
 ac_add_options --enable-application=mobile/android
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
-mk_add_options NO_AUTOCLOBBER=1
+mk_add_options AUTOCLOBBER=
 
 # Android
 ac_add_options --target=arm-linux-androideabi
@@ -24,3 +24,4 @@ ac_add_options --with-ccache
 
 export HOST_CC=/opt/local/bin/gcc-mp-4.7
 export HOST_CXX=/opt/local/bin/g++-mp-4.7
+export MOZ_ENABLE_SZIP=0
