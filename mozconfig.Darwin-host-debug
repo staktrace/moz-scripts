@@ -10,3 +10,5 @@ ac_add_options --enable-tests
 ac_add_options --with-ccache
 ac_add_options --disable-crashreporter
 # ac_add_options --disable-install-strip
+
+export MOZ_RUN_GTEST=1
