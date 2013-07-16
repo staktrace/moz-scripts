@@ -16,6 +16,7 @@ ac_add_options --with-android-version=9
 
 # Build options
 ac_add_options --disable-crashreporter
+ac_add_options --disable-elf-hack
 
 # Use ccache
 ac_add_options --with-ccache
