@@ -2,4 +2,6 @@ export GECKO_PATH=/Users/kats/zspace/mozilla-git
 export GECKO_OBJDIR=/Users/kats/zspace/mozilla-git/obj-gonk
 export NOFTU=1
 export TARGET_TOOLS_PREFIX=/Users/kats/zspace/b2g-toolchain-prebuilt/toolchain-4.4.3/x86_64-linux-gnu/bin/arm-linux-androideabi-
+export B2G_DEBUG=1
+export B2G_NOOPT=1
 export FASTBOOT_FLAGS="-s Android"
