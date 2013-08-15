@@ -1,4 +1,4 @@
-mk_add_options MOZ_MAKE_FLAGS="-j9"
+mk_add_options MOZ_MAKE_FLAGS="-j4"
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-gonk
 mk_add_options AUTOCLOBBER=
 
