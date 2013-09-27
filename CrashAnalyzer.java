@@ -1,5 +1,6 @@
 import java.io.*;
 import java.util.*;
+import java.util.zip.*;
 
 public class CrashAnalyzer {
     private interface CrashFilter {
@@ -24,13 +25,23 @@ public class CrashAnalyzer {
         BufferedReader br = new BufferedReader( in );
         String[] columns = br.readLine().split( "\\t" );
         Map<String, String> dataset = new HashMap<String, String>();
+        int dataLine = 0;
         for (String s = br.readLine(); s != null; s = br.readLine()) {
+            dataLine++;
             String[] tokens = s.split( "\\t" );
+            if (tokens.length != columns.length) {
+                System.err.println( "Column length mismatch on data line number " + dataLine );
+                continue;
+            }
             for (int i = 0; i < columns.length; i++) {
                 dataset.put( columns[i], tokens[i] );
             }
-            String version = dataset.get( "version" ).substring( 0, 2 );
-            dataset.put( "_codeline", version );
+            String version = dataset.get( "version" );
+            if (version.length() < 3) {
+                System.err.println( "Skipping unknown version string [" + version + "] on data line number " + dataLine );
+                continue;
+            }
+            dataset.put( "_codeline", version.substring( 0, 2 ) );
 
             if (! _filter.matchBucket( dataset )) {
                 continue;
@@ -91,9 +102,15 @@ public class CrashAnalyzer {
         });
 
         for (String arg : args) {
-            FileReader fr = new FileReader( arg );
-            ca.loadFile( fr );
-            fr.close();
+            System.err.println( "Processing file [" + arg + "]" );
+            Reader reader;
+            if (arg.endsWith( ".gz" )) {
+                reader = new InputStreamReader( new GZIPInputStream( new FileInputStream( arg ) ) );
+            } else {
+                reader = new FileReader( arg );
+            }
+            ca.loadFile( reader );
+            reader.close();
         }
         List<String> commands = ca.report();
         System.out.println( "Run in gnuplot:" );
