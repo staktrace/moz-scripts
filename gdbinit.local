@@ -1,0 +1,15 @@
+##
+# Local gdbutils configuration: copy configuration lines from gdbinit to here
+#   This ensures preferences are preserved across updates
+##
+
+python feninit.default.objdir = '/Users/kats/zspace/jimdb-objdir'
+python feninit.default.srcroot = '/Users/kats/zspace/mozilla-git'
+python feninit.default.gdbserver_port = 5039
+python feninit.default.mochi_xre = '~/zspace/mozilla-git/obj-host/dist/bin'
+
+##
+# Add any additional startup commands and Python scripts below
+##
+
+
