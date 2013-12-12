@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=28
+VERSION=29
 FILE=${1-"./fennec-$VERSION.0a1.en-US.android-arm.apk"}
 if [ ! -f "$FILE" ]; then
     FILE=$(ls -t1 $HOME/zspace/builds/fennec-*.apk | head -1)
