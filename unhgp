@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+PATCH=${1?"Usage: $0 <hg-patch-file>"}
+
+git apply --reject < $PATCH
+RET=$?
+if [[ $RET -ne 0 ]]; then
+    exit $RET
+fi
+
+AUTHOR=$(head $PATCH | grep "^# User" | sed -e "s/# User //")
+awk 'BEGIN { msg = "" } /^diff/ { print msg; exit } !/^#/ { if (length($0) > 0) { msg = msg $0 "\n" } }' $PATCH |
+git commit -a --author="$AUTHOR" -F -
