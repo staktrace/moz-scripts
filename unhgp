@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 
 PATCH=${1?"Usage: $0 <hg-patch-file>"}
+if [[ $PATCH == http:* ]] || [[ $PATCH == https:* ]]; then
+    LOCAL=$(mktemp patchXXX)
+    wget ${PATCH//\/rev\//\/raw-rev\/} -O - > $LOCAL
+    RET=$?
+    if [[ $RET -ne 0 ]]; then
+        exit $RET
+    fi
+    PATCH=$LOCAL
+fi
+
+echo "Applying patch from $PATCH"
 
 git apply --reject < $PATCH
 RET=$?
