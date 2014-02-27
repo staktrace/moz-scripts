@@ -22,3 +22,11 @@ fi
 AUTHOR=$(head $PATCH | grep "^# User" | sed -e "s/# User //")
 awk 'BEGIN { msg = "" } /^diff/ { print msg; exit } !/^#/ { if (length($0) > 0) { msg = msg $0 "\n" } }' $PATCH |
 git commit -a --author="$AUTHOR" -F -
+RET=$?
+if [[ $RET -ne 0 ]]; then
+    exit $RET
+fi
+
+if [[ -n $LOCAL ]]; then
+    rm $LOCAL
+fi
