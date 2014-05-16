@@ -8,6 +8,7 @@ ac_add_options --disable-jemalloc
 ac_add_options --enable-valgrind
 ac_add_options --enable-optimize="-Os -fno-inline"
 
+ac_add_options --enable-warnings-as-errors
 ac_add_options --enable-debug
 ac_add_options --enable-debug-symbols
 ac_add_options --enable-tests

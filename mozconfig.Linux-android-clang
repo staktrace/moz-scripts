@@ -17,6 +17,7 @@ ac_add_options --with-android-toolchain="$HOME/android/ndk/toolchains/arm-linux-
 ac_add_options --enable-debug
 ac_add_options --disable-optimize
 ac_add_options --disable-elf-hack
+ac_add_options --enable-warnings-as-errors
 
 # Use ccache
 ac_add_options --with-ccache
