@@ -1,0 +1,14 @@
+getprop("ro.product.device") == "mako" || abort("This package is for \"mako\" devices; this is a \"" + getprop("ro.product.device") + "\".");
+show_progress(0.500000, 0);
+ui_print("This may take some minutes...");
+format("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/userdata", 0);
+format("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/system", 0);
+ui_print("Mounting /data");
+ifelse(is_mounted("/data"),ui_print("Already mounted."),assert(mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/userdata", "/data")));
+ui_print("Mounting /system");
+ifelse(is_mounted("/system"),ui_print("Already mounted."),assert(mount("ext4", "EMMC", "/dev/block/platform/msm_sdcc.1/by-name/system", "/system")));
+ui_print("Extracting files to /system");
+package_extract_dir("system", "/system");
+ui_print("Extracting files to /data");
+package_extract_dir("data", "/data");
+ui_print("Creating symlinks");
