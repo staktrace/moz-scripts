@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+zbl && adb remount && adb push objdir-gecko/dist/bin/libxul.so /system/b2g/libxul.so
