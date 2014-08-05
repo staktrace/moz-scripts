@@ -13,7 +13,6 @@ fi
     && mach build --verbose \
     && mach package \
     && cp obj-android/dist/fennec*.apk $HOME/zspace/builds/ \
-    && save-build
 ) 2>&1 | tee obj-android/build.log
 RET=${PIPESTATUS[0]}
 
