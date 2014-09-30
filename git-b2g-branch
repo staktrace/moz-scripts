@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+echo "Build"
+pushd build >/dev/null && git branch && popd >/dev/null
+echo
+echo "Gaia"
+pushd gaia >/dev/null && git branch && popd >/dev/null
+echo
+echo "Gecko"
+pushd gecko >/dev/null && git branch && popd >/dev/null
