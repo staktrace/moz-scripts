@@ -3,3 +3,5 @@ export ANDROID_SERIAL=94f8ce1b
 # export B2G_DEBUG=1
 # export B2G_NOOPT=1
 export B2G_DUMP_PAINTING=1
+export MOZ_PROFILING=1
+export TARGET_BUILD_VARIANT=eng
