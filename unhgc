@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+CSETS=$(vcslookup.sh $1)
+if [ $? -eq 1 ]; then
+    echo "Unable to find hg cset" > /dev/stderr
+    exit 1
+fi
+echo $CSETS | sed -e "s/ .*//" | xargs git cherry-pick
