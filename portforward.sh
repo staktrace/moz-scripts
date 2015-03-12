@@ -1,3 +1,5 @@
 #!/usr/bin/env bash
 
-adb forward tcp:6000 localfilesystem:/data/data/org.mozilla.fennec_kats/firefox-debugger-socket
+APP=${1?""}
+
+adb forward tcp:6000 localfilesystem:/data/data/org.mozilla.fennec$APP/firefox-debugger-socket
