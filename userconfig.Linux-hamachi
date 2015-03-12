@@ -1,5 +1,6 @@
 export NOFTU=1
-export TARGET_TOOLS_PREFIX=/Users/kats/zspace/b2g-toolchain-prebuilt/toolchain-4.4.3/x86_64-linux-gnu/bin/arm-linux-androideabi-
 # export B2G_DEBUG=1
 # export FASTBOOT_FLAGS="-s MSM7627A"
 export ANDROID_SERIAL="MSM7627A"
+export B2G_DUMP_PAINTING=1
+export MOZ_PROFILING=1
