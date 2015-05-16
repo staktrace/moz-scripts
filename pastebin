@@ -2,10 +2,10 @@
 import urllib, sys
 
 if len(sys.argv) == 2:
-    url = "http://%s.pastebin.mozilla.org" % sys.argv[1]
+    url = "https://%s.pastebin.mozilla.org" % sys.argv[1]
     fmt = sys.argv[1]
 else:
-    url = "http://pastebin.mozilla.org"
+    url = "https://pastebin.mozilla.org"
     fmt = "None"
 
 body = sys.stdin.read()
