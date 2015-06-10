@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+if [ ! -f "build.sh" ]; then
+    echo "No build.sh found; you may be in the wrong directory!" > /dev/stderr
+    exit 1
+fi
+find . -name "adb" -type f | xargs rm
+exit 0
