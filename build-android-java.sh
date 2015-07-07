@@ -9,9 +9,8 @@ if [ ! -d "obj-android" ]; then
     mkdir obj-android
 fi
 
-(make -C obj-android/mobile/android \
-    && make -C obj-android package \
-    && cp obj-android/dist/fennec*.apk $HOME/zspace/builds/
+(mach build mobile/android \
+    && mach package
 ) 2>&1 | tee obj-android/build.log
 RET=${PIPESTATUS[0]}
 
