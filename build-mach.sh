@@ -5,7 +5,7 @@ if [ ! -f "client.mk" ]; then
     exit 1;
 fi
 
-mach build 2>&1 | tee build.log
+mach build $* 2>&1 | tee build.log
 RET=${PIPESTATUS[0]}
 
 exit $RET
