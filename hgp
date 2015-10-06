@@ -17,3 +17,5 @@ awk '{print NR, $1}' |
 while read cnt sha; do
     git hgp $sha > $DESTDIR/$cnt-$FBRANCH-$sha
 done
+
+echo "If you're seing these patches to Botond, use MozReview!"
