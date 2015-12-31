@@ -1,6 +1,6 @@
 . $topsrcdir/browser/config/mozconfig
 
-mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-host
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-mulet
 mk_add_options MOZ_MAKE_FLAGS="-s -j9"
 mk_add_options AUTOCLOBBER=1
 
