@@ -11,3 +11,5 @@ ac_add_options --disable-crashreporter
 ac_add_options --disable-elf-hack
 ac_add_options --enable-dump-painting
 ac_add_options --enable-application=b2g/dev
+
+ENABLE_MARIONETTE=1
