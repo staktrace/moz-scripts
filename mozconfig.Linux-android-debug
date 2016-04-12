@@ -3,7 +3,7 @@ mk_add_options MOZ_MAKE_FLAGS="-j9"
 
 # Build Fennec
 ac_add_options --enable-application=mobile/android
-mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android-debug
 
 # Android
 ac_add_options --target=arm-linux-androideabi
