@@ -18,4 +18,4 @@ while read cnt sha; do
     git hgp $sha > $DESTDIR/$cnt-$FBRANCH-$sha
 done
 
-echo "If you're seing these patches to Botond, use MozReview!"
+echo "If you're seing these patches to Botond or Markus, use MozReview!"
