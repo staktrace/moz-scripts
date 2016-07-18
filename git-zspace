@@ -2,8 +2,8 @@
 
 for i in mozilla-git B2G-aries/gecko B2G-emulator-xkk/gecko flame-gecko; do
     if [ -d $HOME/zspace/$i ]; then
-        echo $i
-        pushd $HOME/zspace/$i >/dev/null && git branch && popd >/dev/null
+        echo zspace/$i
+        pushd $HOME/zspace/$i >/dev/null && git branch-tree && popd >/dev/null
         echo
     fi
 done
