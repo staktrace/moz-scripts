@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+mbb && mach package && mach install

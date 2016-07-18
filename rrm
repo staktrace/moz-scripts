@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+if [ -z "$1" -a -z "$2" ]; then
+  rr -M replay -a
+else
+  rr replay -p $1 -g $2
+fi
