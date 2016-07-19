@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-for i in mozilla-git B2G-aries/gecko B2G-emulator-xkk/gecko flame-gecko; do
-    if [ -d $HOME/zspace/$i ]; then
-        echo zspace/$i
-        pushd $HOME/zspace/$i >/dev/null && git branch-tree && popd >/dev/null
+for i in $HOME/zspace/mozilla-* $HOME/zspace/B2G*/gecko; do
+    if [ -d $i/.git ]; then
+        echo $i
+        pushd $i >/dev/null && git branch-tree && popd >/dev/null
         echo
     fi
 done
