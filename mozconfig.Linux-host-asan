@@ -1,0 +1,54 @@
+. $topsrcdir/browser/config/mozconfig
+
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-host-asan
+mk_add_options MOZ_MAKE_FLAGS="-s -j5"
+mk_add_options AUTOCLOBBER=1
+
+
+
+
+# Enable ASan specific code and build workarounds
+ac_add_options --enable-address-sanitizer
+
+# Ensure you set this to your LLVM_HOME path
+export LLVM_HOME="$HOME/zspace/llvm"
+
+# Set CC/CXX based on LLVM_HOME
+export CC="$LLVM_HOME/build/bin/clang"
+export CXX="$LLVM_HOME/build/bin/clang++"
+
+# This will ensure the symbolizer is packaged with the binary
+export LLVM_SYMBOLIZER="$LLVM_HOME/build/bin/llvm-symbolizer"
+
+# Add ASan to our compiler flags
+export CFLAGS="-fsanitize=address -Dxmalloc=myxmalloc -fPIC"
+export CXXFLAGS="-fsanitize=address -Dxmalloc=myxmalloc -fPIC"
+
+# Additionally, we need the ASan flag during linking. Normally, our C/CXXFLAGS would
+# be used during linking as well but there is at least one place in our build where
+# our CFLAGS are not added during linking.
+# Note: The use of this flag causes Clang to automatically link the ASan runtime :)
+export LDFLAGS="-fsanitize=address"
+
+# These three are required by ASan
+ac_add_options --disable-jemalloc
+ac_add_options --disable-crashreporter
+ac_add_options --disable-elf-hack
+
+# Keep symbols to symbolize ASan traces later
+export MOZ_DEBUG_SYMBOLS=1
+ac_add_options --enable-debug-symbols
+ac_add_options --disable-install-strip
+
+
+# Settings for an opt build (preferred)
+# The -gline-tables-only ensures that all the necessary debug information for ASan
+# is present, but the rest is stripped so the resulting binaries are smaller.
+ac_add_options --enable-optimize="-O2 -gline-tables-only"
+ac_add_options --disable-debug
+
+ac_add_options --enable-valgrind
+
+ac_add_options --enable-default-toolkit=cairo-gtk3
+ac_add_options --enable-release
+# ac_add_options --enable-stdcxx-compat
