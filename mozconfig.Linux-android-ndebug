@@ -1,5 +1,6 @@
 # Global options
 mk_add_options MOZ_MAKE_FLAGS="-j9"
+mk_add_options AUTOCLOBBER=1
 
 # Build Fennec
 ac_add_options --enable-application=mobile/android
@@ -14,6 +15,7 @@ ac_add_options --with-android-version=9
 # Build options
 ac_add_options --disable-elf-hack
 ac_add_options --enable-warnings-as-errors
+ac_add_options --enable-dump-painting
 
 # Use ccache
 ac_add_options --with-ccache
