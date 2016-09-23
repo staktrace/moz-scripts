@@ -1,5 +1,6 @@
 # Global options
 mk_add_options MOZ_MAKE_FLAGS="-j4"
+mk_add_options AUTOCLOBBER=1
 
 # Build Fennec
 ac_add_options --enable-application=mobile/android
