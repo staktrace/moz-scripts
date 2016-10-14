@@ -1,8 +1,0 @@
-export GECKO_PATH=/Users/kats/zspace/mozilla-git
-export GECKO_OBJDIR=/Users/kats/zspace/mozilla-git/obj-gonk
-export NOFTU=1
-export FASTBOOT_FLAGS="-s Android"
-export ANDROID_SERIAL=b1a87088f488
-export B2G_DEBUG=1
-# export B2G_NOOPT=1
-export B2G_DUMP_PAINTING=1

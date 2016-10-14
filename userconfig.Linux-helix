@@ -1,4 +1,0 @@
-export NOFTU=1
-# export B2G_DEBUG=1
-export FASTBOOT_FLAGS="-s e1461c5d"
-export ANDROID_SERIAL=$HELIX

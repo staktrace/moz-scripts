@@ -1,5 +1,0 @@
-export NOFTU=1
-export ANDROID_SERIAL=0187a7df521c09d4
-# export B2G_DEBUG=1
-# export B2G_NOOPT=1
-export B2G_DUMP_PAINTING=1
