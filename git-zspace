@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-for i in $HOME/zspace/mozilla-* $HOME/zspace/B2G*/gecko; do
+for i in $HOME/zspace/mozilla-*; do
     if [ -d $i/.git ]; then
         echo $i
         pushd $i >/dev/null && git branch-tree && popd >/dev/null
