@@ -3,14 +3,15 @@ mk_add_options MOZ_MAKE_FLAGS="-j9"
 mk_add_options AUTOCLOBBER=1
 
 # Build Fennec
-ac_add_options --enable-application=mobile/android
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android-debug
 
-# Android
+# Build Firefox for Android:
+ac_add_options --enable-application=mobile/android
 ac_add_options --target=arm-linux-androideabi
-ac_add_options --with-android-ndk="$HOME/android/ndk"
-ac_add_options --with-android-sdk="$HOME/android/sdk"
-ac_add_options --with-android-version=9
+
+# With the following Android SDK and NDK:
+ac_add_options --with-android-sdk="/home/kats/.mozbuild/android-sdk-linux"
+ac_add_options --with-android-ndk="/home/kats/.mozbuild/android-ndk-r11b"
 
 # Build options
 ac_add_options --enable-debug
