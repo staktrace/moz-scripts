@@ -2,14 +2,15 @@
 mk_add_options MOZ_MAKE_FLAGS="-j4"
 
 # Build Fennec
-ac_add_options --enable-application=mobile/android
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
 
-# Android
+# Build Firefox for Android:
+ac_add_options --enable-application=mobile/android
 ac_add_options --target=arm-linux-androideabi
-ac_add_options --with-android-ndk="$HOME/android/ndk"
-ac_add_options --with-android-sdk="$HOME/android/sdk"
-ac_add_options --with-android-version=9
+
+# With the following Android SDK and NDK:
+ac_add_options --with-android-sdk="/Users/kats/.mozbuild/android-sdk-macosx"
+ac_add_options --with-android-ndk="/Users/kats/.mozbuild/android-ndk-r11b"
 
 # Build options
 ac_add_options --disable-crashreporter
