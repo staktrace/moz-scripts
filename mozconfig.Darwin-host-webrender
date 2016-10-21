@@ -1,0 +1,19 @@
+. $topsrcdir/browser/config/mozconfig
+
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-host
+mk_add_options MOZ_MAKE_FLAGS="-s -j4"
+mk_add_options AUTOCLOBBER=1
+
+ac_add_options --enable-warnings-as-errors
+# ac_add_options --enable-debug
+# ac_add_options --enable-tests
+# ac_add_options --disable-optimize
+ac_add_options --with-ccache
+ac_add_options --disable-crashreporter
+# ac_add_options --disable-install-strip
+ac_add_options --enable-dump-painting
+
+export MOZ_RUN_GTEST=1
+
+# for linking rust/webrender, workaround for bug 1188030
+LDFLAGS="-Wl,-no_compact_unwind"
