@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+UPSTREAM=$(git rev-parse --abbrev-ref @{u})
+if [ $? -ne 0 ]; then
+    UPSTREAM=master
+fi
+git log $UPSTREAM..HEAD $*
