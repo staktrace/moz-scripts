@@ -1,1 +1,1 @@
-/home/kats/.mozbuild/android-sdk-linux/platform-tools/adb
+/Users/kats/.mozbuild/android-sdk/platform-tools/adb
