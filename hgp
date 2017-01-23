@@ -7,7 +7,12 @@ DESTDIR=$HOME/zspace/patches
 BRANCH=${2:-$(git branch | grep "^*" | cut -d " " -f 2)}
 FBRANCH=${BRANCH//\//-}     # filename-safe branch name
 
-NUMPATCHES=${1-$(git log --oneline master..$BRANCH | wc -l)}
+UPSTREAM=$(git rev-parse --abbrev-ref @{u})
+if [ $? -ne 0 ]; then
+    UPSTREAM=master
+fi
+
+NUMPATCHES=${1-$(git log --oneline $UPSTREAM..$BRANCH | wc -l)}
 
 mkdir -p $DESTDIR/old 2>/dev/null
 mv $DESTDIR/*-$FBRANCH-* $DESTDIR/old/ 2>/dev/null
