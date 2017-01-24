@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+hg qser | head -n 1 | xargs hg qrm
