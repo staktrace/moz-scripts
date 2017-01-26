@@ -1,2 +1,6 @@
 #!/usr/bin/env bash
-hg qser | head -n 1 | xargs hg qrm
+if [ -z "$1" ]; then
+    hg qser | head -n 1 | xargs hg qrm
+else
+    hg qser | grep "$1" | xargs hg qrm
+fi
