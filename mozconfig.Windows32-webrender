@@ -1,0 +1,3 @@
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-win32-wr
+mk_add_options AUTOCLOBBER=1
+ac_add_options --enable-webrender
