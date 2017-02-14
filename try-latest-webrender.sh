@@ -4,7 +4,8 @@ set -e
 
 MOZILLA_SRC=$HOME/zspace/test-mozilla-wr
 WEBRENDER_SRC=$HOME/zspace/test-webrender
-AWKSCRIPT=$(dirname $0)/latest-webrender.awk
+MYSELF=$(readlink -f $0)
+AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
 
 pushd $MOZILLA_SRC
 
