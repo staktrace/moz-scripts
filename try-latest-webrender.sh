@@ -7,6 +7,8 @@ WEBRENDER_SRC=$HOME/zspace/test-webrender
 MYSELF=$(readlink -f $0)
 AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
 
+echo "Running try-latest-webrender.sh at $(date)"
+
 pushd $MOZILLA_SRC
 
 hg pull -u graphics
