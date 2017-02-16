@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+valgrind --smc-check=all-non-file --vex-iropt-register-updates=allregs-at-mem-access --show-mismatched-frees=no --read-inline-info=yes --log-file="$HOME/zspace/%p.memcheck" $*
