@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
-set -e
+set -eu
+set -o pipefail
 
 MOZILLA_SRC=$HOME/zspace/test-mozilla-wr
 WEBRENDER_SRC=$HOME/zspace/test-webrender
 MYSELF=$(readlink -f $0)
 AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
+TMPDIR=$HOME/tmp
 
 echo "Running try-latest-webrender.sh at $(date)"
 
