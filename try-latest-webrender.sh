@@ -3,6 +3,11 @@
 set -eu
 set -o pipefail
 
+# The test-mozilla-wr repo must have an unapplied mq patch called wr-try which
+# is created as follows:
+#   hg qnew -m "try: -b do -p macosx64-qr,linux-qr,linux64-qr,win32-qr,win64-qr -u all[linux64-qr] -t none" wr-try
+# Any additional patches that you wish to have applied in the try push must be
+# above this patch in the patch stack (so that `hg qgoto wr-try` applies them).
 MOZILLA_SRC=$HOME/zspace/test-mozilla-wr
 WEBRENDER_SRC=$HOME/zspace/test-webrender
 MYSELF=$(readlink -f $0)
@@ -45,10 +50,10 @@ hg qnew -m "Update webrender to $CSET" wr-update
 hg addremove
 hg qnew -m "Re-vendor rust dependencies" wr-revendor
 
-hg qnew -m "try: -b do -p macosx64-qr,linux-qr,linux64-qr,win32-qr,win64-qr -u all[linux64-qr] -t none" wr-try
+hg qgoto wr-try
 hg push -f try -r tip
 
 hg qpop -a
-hg qser | grep "wr-" | xargs hg qrm
+hg qrm wr-update wr-revendor
 
 popd
