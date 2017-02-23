@@ -22,7 +22,7 @@ hg pull -u graphics
 
 pushd $WEBRENDER_SRC
 git pull
-CSET=$(git log -1 | grep commit)
+CSET=$(git log -1 | grep commit | head -n 1)
 popd
 
 pushd gfx/
@@ -37,10 +37,10 @@ mv $TMPDIR/webrender-bindings-toml webrender_bindings/Cargo.toml
 popd
 
 pushd toolkit/library/rust
-cargo update -p webrender_bindings --aggressive
+cargo update -p webrender_traits
 popd
 pushd toolkit/library/gtest/rust
-cargo update -p webrender_bindings --aggressive
+cargo update -p webrender_traits
 popd
 
 hg addremove
