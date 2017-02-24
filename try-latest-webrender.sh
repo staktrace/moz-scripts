@@ -18,6 +18,7 @@ PUSH_TO_TRY=${PUSH_TO_TRY:-1}
 echo "Running try-latest-webrender.sh at $(date)"
 
 pushd $MOZILLA_SRC
+hg qrm wr-update wr-revendor
 
 hg pull -u graphics
 
@@ -57,6 +58,5 @@ if [ "$PUSH_TO_TRY" -eq 1 ]; then
 fi
 
 hg qpop -a
-hg qrm wr-update wr-revendor
 
 popd
