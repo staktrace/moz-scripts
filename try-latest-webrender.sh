@@ -13,6 +13,7 @@ WEBRENDER_SRC=$HOME/zspace/test-webrender
 MYSELF=$(readlink -f $0)
 AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
 TMPDIR=$HOME/tmp
+PUSH_TO_TRY=${PUSH_TO_TRY:-1}
 
 echo "Running try-latest-webrender.sh at $(date)"
 
@@ -50,8 +51,10 @@ hg qnew -m "Update webrender to $CSET" wr-update
 hg addremove
 hg qnew -m "Re-vendor rust dependencies" wr-revendor
 
-hg qgoto wr-try
-hg push -f try -r tip
+if [ "$PUSH_TO_TRY" -eq 1 ]; then
+    hg qgoto wr-try
+    hg push -f try -r tip
+fi
 
 hg qpop -a
 hg qrm wr-update wr-revendor
