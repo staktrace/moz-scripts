@@ -14,6 +14,7 @@ MYSELF=$(readlink -f $0)
 AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
 TMPDIR=$HOME/tmp
 PUSH_TO_TRY=${PUSH_TO_TRY:-1}
+WR_CSET=${WR_CSET:-master}
 
 echo "Running try-latest-webrender.sh at $(date)"
 
@@ -24,6 +25,7 @@ hg pull -u graphics
 
 pushd $WEBRENDER_SRC
 git pull
+git checkout $WR_CSET
 CSET=$(git log -1 | grep commit | head -n 1)
 popd
 
@@ -31,6 +33,10 @@ pushd gfx/
 rm -rf webrender webrender_traits
 cp -R $WEBRENDER_SRC/webrender .
 cp -R $WEBRENDER_SRC/webrender_traits .
+
+pushd $WEBRENDER_SRC
+git checkout master
+popd
 
 WR_VERSION=$(cat webrender/Cargo.toml | awk '/^version/ { print $0; exit }')
 WRT_VERSION=$(cat webrender_traits/Cargo.toml | awk '/^version/ { print $0; exit }')
