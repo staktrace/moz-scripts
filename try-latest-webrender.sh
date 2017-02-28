@@ -19,7 +19,9 @@ WR_CSET=${WR_CSET:-master}
 echo "Running try-latest-webrender.sh at $(date)"
 
 pushd $MOZILLA_SRC
-hg qrm wr-update wr-revendor
+hg qrm wr-update-code || true
+hg qrm wr-update-lockfile || true
+hg qrm wr-revendor || true
 
 hg pull -u graphics
 
@@ -44,6 +46,11 @@ awk -f $AWKSCRIPT -v wr_version="${WR_VERSION}" -v wrt_version="${WRT_VERSION}" 
 mv $TMPDIR/webrender-bindings-toml webrender_bindings/Cargo.toml
 popd
 
+hg addremove
+hg qnew -m "Update webrender to $CSET" wr-update-code
+
+hg qgoto wr-toml-fixup
+
 pushd toolkit/library/rust
 cargo update -p webrender_traits
 popd
@@ -52,7 +59,7 @@ cargo update -p webrender_traits
 popd
 
 hg addremove
-hg qnew -m "Update webrender to $CSET" wr-update
+hg qnew -m "Update Cargo lockfiles" wr-update-lockfile
 
 ./mach vendor rust
 hg addremove
@@ -60,7 +67,9 @@ hg qnew -m "Re-vendor rust dependencies" wr-revendor
 
 if [ "$PUSH_TO_TRY" -eq 1 ]; then
     hg qgoto wr-try
-    hg push -f try -r tip
+    hg push -f try -r tip || echo "Push failure"
+else
+    echo "Skipping push to try because PUSH_TO_TRY != 1"
 fi
 
 hg qpop -a
