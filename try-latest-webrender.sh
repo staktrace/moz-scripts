@@ -22,6 +22,7 @@ pushd $MOZILLA_SRC
 hg qrm wr-update-code || true
 hg qrm wr-update-lockfile || true
 hg qrm wr-revendor || true
+hg qrm wr-regen-bindings || true
 
 hg pull -u graphics
 
@@ -64,6 +65,9 @@ hg qnew -m "Update Cargo lockfiles" wr-update-lockfile
 ./mach vendor rust
 hg addremove
 hg qnew -m "Re-vendor rust dependencies" wr-revendor
+
+cbindgen -c wr gfx/webrender_bindings/ gfx/webrender_bindings/webrender_ffi_generated.h
+hg qnew -m "Re-generate FFI header" wr-regen-bindings
 
 if [ "$PUSH_TO_TRY" -eq 1 ]; then
     hg qgoto wr-try
