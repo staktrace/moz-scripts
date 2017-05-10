@@ -53,10 +53,10 @@ hg qnew -m "Update webrender to $CSET" wr-update-code
 hg qgoto wr-toml-fixup
 
 pushd toolkit/library/rust
-cargo update -p webrender_traits
+cargo update -p webrender_traits -p webrender
 popd
 pushd toolkit/library/gtest/rust
-cargo update -p webrender_traits
+cargo update -p webrender_traits -p webrender
 popd
 
 hg addremove
@@ -66,7 +66,7 @@ hg qnew -m "Update Cargo lockfiles" wr-update-lockfile
 hg addremove
 hg qnew -m "Re-vendor rust dependencies" wr-revendor
 
-cbindgen -c wr gfx/webrender_bindings/ gfx/webrender_bindings/webrender_ffi_generated.h
+cbindgen gfx/webrender_bindings/ -o gfx/webrender_bindings/webrender_ffi_generated.h
 hg qnew -m "Re-generate FFI header" wr-regen-bindings
 
 if [ "$PUSH_TO_TRY" -eq 1 ]; then
