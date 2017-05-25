@@ -3,5 +3,3 @@
 TARGET="${1:-"screenshot"}.png"
 monkeyrunner $HOME/zspace/configs/screenshot.py
 mv screen.png $TARGET
-# scp screen.png people:www/tmp/$TARGET
-# echo "https://people.mozilla.com/~kgupta/tmp/$TARGET"
