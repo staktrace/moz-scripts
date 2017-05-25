@@ -1,5 +1,0 @@
-adb shell am start -a android.intent.action.VIEW -n org.mozilla.fennec_$USER/.App -d "file://mnt/sdcard/download/favorites1.html?j#`python -c 'import time; print int(time.time() * 1000);'`"
-
-
-# https://etherpad.mozilla.org/fennec-perf-ts
-# http://people.mozilla.com/~nhirata/Perf/favorites1.html

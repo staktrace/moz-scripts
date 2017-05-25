@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-FNAME=${1:-"fennec"}
-
-scp $HOME/zspace/builds/fennec-??.0a1.en-US.android-arm.apk people:www/tmp/$FNAME.apk
-echo "https://people.mozilla.com/~kgupta/tmp/$FNAME.apk"
