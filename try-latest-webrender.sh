@@ -77,10 +77,9 @@ hg qnew -m "Re-generate FFI header" wr-regen-bindings
 if [ "$PUSH_TO_TRY" -eq 1 ]; then
     hg qgoto wr-try
     hg push -f try -r tip || echo "Push failure"
+    hg qpop -a
 else
     echo "Skipping push to try because PUSH_TO_TRY != 1"
 fi
-
-hg qpop -a
 
 popd
