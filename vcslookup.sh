@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-ssh people "grep $1 gecko-mapfile"
+MAPFILE=$HOME/Downloads/gecko-mapfile
+grep $1 "$MAPFILE"
 if [ $? -ne 0 ]; then
     echo "Re-pulling mapfile..." > /dev/stderr
-    ssh people "rm gecko-mapfile && wget -O gecko-mapfile --quiet https://api.pub.build.mozilla.org/mapper/gecko-dev/mapfile/full && grep $1 gecko-mapfile"
+    rm "$MAPFILE" && wget -O "$MAPFILE" --quiet https://api.pub.build.mozilla.org/mapper/gecko-dev/mapfile/full && grep $1 "$MAPFILE"
 fi
