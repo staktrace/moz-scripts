@@ -19,6 +19,11 @@ WR_CSET=${WR_CSET:-master}
 echo "Running try-latest-webrender.sh at $(date)"
 
 pushd $MOZILLA_SRC
+APPLIED=$(hg qapplied | wc -l)
+if [ "$APPLIED" -ne 0 ]; then
+    echo "Unclean state, aborting..."
+    exit 1
+fi
 hg qrm wr-update-code || true
 hg qrm wr-update-lockfile || true
 hg qrm wr-revendor || true
