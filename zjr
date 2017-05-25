@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-zj && kill-fennec.sh
