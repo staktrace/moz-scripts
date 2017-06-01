@@ -29,7 +29,7 @@ hg qrm wr-update-lockfile || true
 hg qrm wr-revendor || true
 hg qrm wr-regen-bindings || true
 
-hg pull -u graphics
+hg pull -u m-c
 
 pushd $WEBRENDER_SRC
 git pull
