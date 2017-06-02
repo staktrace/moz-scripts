@@ -2,7 +2,7 @@
 mk_add_options MOZ_MAKE_FLAGS="-j4"
 
 # Build Fennec
-mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android-android
 
 # Build Firefox for Android:
 ac_add_options --enable-application=mobile/android
