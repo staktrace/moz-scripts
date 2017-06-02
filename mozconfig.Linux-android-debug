@@ -15,7 +15,7 @@ ac_add_options --with-android-ndk="/home/kats/.mozbuild/android-ndk-r11b"
 
 # Build options
 ac_add_options --enable-debug
-# ac_add_options --disable-optimize
+# ac_add_options --enable-optimize="-Og"
 ac_add_options --disable-elf-hack
 ac_add_options --enable-tests
 ac_add_options --enable-warnings-as-errors
