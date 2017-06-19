@@ -76,8 +76,9 @@ hg qnew -m "Re-vendor rust dependencies" wr-revendor
 cbindgen gfx/webrender_bindings/ -o gfx/webrender_bindings/webrender_ffi_generated.h
 hg qnew -m "Re-generate FFI header" wr-regen-bindings
 
+hg qgoto wr-try
+
 if [ "$PUSH_TO_TRY" -eq 1 ]; then
-    hg qgoto wr-try
     hg push -f try -r tip || echo "Push failure (linux64)"
     hg qgoto wr-try-win
     hg push -f try -r tip || echo "Push failure (windows)"
