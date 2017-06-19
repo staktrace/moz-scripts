@@ -48,7 +48,9 @@ popd
 
 WR_VERSION=$(cat webrender/Cargo.toml | awk '/^version/ { print $0; exit }')
 WRT_VERSION=$(cat webrender_traits/Cargo.toml | awk '/^version/ { print $0; exit }')
-awk -f $AWKSCRIPT -v wr_version="${WR_VERSION}" -v wrt_version="${WRT_VERSION}" webrender_bindings/Cargo.toml > $TMPDIR/webrender-bindings-toml
+EUCLID_VERSION=$(cat webrender_traits/Cargo.toml | awk '/^euclid/ { print $0; exit }')
+AU_VERSION=$(cat webrender_traits/Cargo.toml | awk '/^app_units/ { print $0; exit }')
+awk -f $AWKSCRIPT -v wr_version="${WR_VERSION}" -v wrt_version="${WRT_VERSION}" -v euclid_version="${EUCLID_VERSION}" au_version="${AU_VERSION}" webrender_bindings/Cargo.toml > $TMPDIR/webrender-bindings-toml
 mv $TMPDIR/webrender-bindings-toml webrender_bindings/Cargo.toml
 popd
 

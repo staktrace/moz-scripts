@@ -21,6 +21,14 @@ BEGIN {
     in_wr_block = 0;
 }
 
+/^euclid/ {
+    $0 = euclid_version;
+}
+
+/^app_units/ {
+    $0 = au_version;
+}
+
 /^/ {
     print $0;
 }
