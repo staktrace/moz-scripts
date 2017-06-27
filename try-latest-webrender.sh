@@ -5,7 +5,7 @@ set -o pipefail
 
 # The test-mozilla-wr repo must have an unapplied mq patch called wr-try which
 # is created as follows:
-#   hg qnew -m "try: -b do -p macosx64-qr,linux-qr,linux64-qr,win32-qr,win64-qr -u all[linux64-qr] -t none" wr-try
+#   hg qnew -m "try: -b do -p macosx64,linux,linux64,win32,linux64-base-toolchains -u all[linux64-qr] -t none" wr-try
 # Any additional patches that you wish to have applied in the try push must be
 # above this patch in the patch stack (so that `hg qgoto wr-try` applies them).
 MOZILLA_SRC=$HOME/zspace/test-mozilla-wr
