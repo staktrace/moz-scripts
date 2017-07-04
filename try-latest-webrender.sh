@@ -15,6 +15,7 @@ AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
 TMPDIR=$HOME/tmp
 PUSH_TO_TRY=${PUSH_TO_TRY:-1}
 WR_CSET=${WR_CSET:-master}
+SKIP_WIN=${SKIP_WIN:-0}
 
 echo "Running try-latest-webrender.sh at $(date)"
 
@@ -87,8 +88,10 @@ hg qgoto wr-try
 
 if [ "$PUSH_TO_TRY" -eq 1 ]; then
     hg push -f try -r tip || echo "Push failure (linux64)"
-    hg qgoto wr-try-win
-    hg push -f try -r tip || echo "Push failure (windows)"
+    if [ "$SKIP_WIN" -eq 0 ]; then
+        hg qgoto wr-try-win
+        hg push -f try -r tip || echo "Push failure (windows)"
+    fi
     hg qpop -a
 else
     echo "Skipping push to try because PUSH_TO_TRY != 1"
