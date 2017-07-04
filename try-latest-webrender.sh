@@ -38,19 +38,24 @@ CSET=$(git log -1 | grep commit | head -n 1)
 popd
 
 pushd gfx/
-rm -rf webrender webrender_traits
+rm -rf webrender webrender_traits webrender_api
 cp -R $WEBRENDER_SRC/webrender .
-cp -R $WEBRENDER_SRC/webrender_traits .
+if [ -d $WEBRENDER_SRC/webrender_traits ]; then
+    TRAITS=traits
+elif [ -d $WEBRENDER_SRC/webrender_api ]; then
+    TRAITS=api
+fi
+cp -R $WEBRENDER_SRC/webrender_$TRAITS .
 
 pushd $WEBRENDER_SRC
 git checkout master
 popd
 
 WR_VERSION=$(cat webrender/Cargo.toml | awk '/^version/ { print $0; exit }')
-WRT_VERSION=$(cat webrender_traits/Cargo.toml | awk '/^version/ { print $0; exit }')
-EUCLID_VERSION=$(cat webrender_traits/Cargo.toml | awk '/^euclid/ { print $0; exit }')
-AU_VERSION=$(cat webrender_traits/Cargo.toml | awk '/^app_units/ { print $0; exit }')
-awk -f $AWKSCRIPT -v wr_version="${WR_VERSION}" -v wrt_version="${WRT_VERSION}" -v euclid_version="${EUCLID_VERSION}" au_version="${AU_VERSION}" webrender_bindings/Cargo.toml > $TMPDIR/webrender-bindings-toml
+WRT_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^version/ { print $0; exit }')
+EUCLID_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^euclid/ { print $0; exit }')
+AU_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^app_units/ { print $0; exit }')
+sed -e "s/webrender_traits/webrender_${TRAITS}/g" webrender_bindings/Cargo.toml | awk -f $AWKSCRIPT -v wr_version="${WR_VERSION}" -v wrt_version="${WRT_VERSION}" -v euclid_version="${EUCLID_VERSION}" au_version="${AU_VERSION}" > $TMPDIR/webrender-bindings-toml
 mv $TMPDIR/webrender-bindings-toml webrender_bindings/Cargo.toml
 popd
 
@@ -60,10 +65,12 @@ hg qnew -m "Update webrender to $CSET" wr-update-code
 hg qgoto wr-toml-fixup
 
 pushd toolkit/library/rust
-cargo update -p webrender_traits -p webrender
+sed -i -e "s/webrender_traits/webrender_${TRAITS}/g" Cargo.lock
+cargo update -p webrender_${TRAITS} -p webrender
 popd
 pushd toolkit/library/gtest/rust
-cargo update -p webrender_traits -p webrender
+sed -i -e "s/webrender_traits/webrender_${TRAITS}/g" Cargo.lock
+cargo update -p webrender_${TRAITS} -p webrender
 popd
 
 hg addremove
