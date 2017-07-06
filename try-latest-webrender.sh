@@ -81,7 +81,7 @@ hg qnew -m "Update Cargo lockfiles" wr-update-lockfile
 hg addremove
 hg qnew -m "Re-vendor rust dependencies" wr-revendor
 
-cbindgen gfx/webrender_bindings/ -o gfx/webrender_bindings/webrender_ffi_generated.h
+cbindgen toolkit/library/rust --crate webrender_bindings -o gfx/webrender_bindings/webrender_ffi_generated.h
 hg qnew -m "Re-generate FFI header" wr-regen-bindings
 
 hg qgoto wr-try
