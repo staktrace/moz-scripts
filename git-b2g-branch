@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-for i in build gonk-misc gaia gecko; do
-    echo $i
-    pushd $i >/dev/null && git branch && popd >/dev/null
-    echo
-done
