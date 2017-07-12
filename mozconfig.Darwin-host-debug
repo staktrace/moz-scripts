@@ -7,7 +7,7 @@ mk_add_options AUTOCLOBBER=1
 ac_add_options --enable-warnings-as-errors
 ac_add_options --enable-debug
 ac_add_options --enable-tests
-# ac_add_options --enable-optimize="-Og"
+# ac_add_options --enable-optimize="-g"
 ac_add_options --with-ccache
 ac_add_options --disable-crashreporter
 # ac_add_options --disable-install-strip
