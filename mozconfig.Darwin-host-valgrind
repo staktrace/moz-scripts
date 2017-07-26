@@ -13,5 +13,5 @@ ac_add_options --enable-debug
 ac_add_options --enable-debug-symbols
 ac_add_options --enable-tests
 ac_add_options --enable-profiling
-ac_add_options --with-ccache
+ac_add_options --with-ccache=sccache
 ac_add_options --disable-crashreporter
