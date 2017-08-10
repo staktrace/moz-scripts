@@ -16,6 +16,7 @@ TMPDIR=$HOME/tmp
 PUSH_TO_TRY=${PUSH_TO_TRY:-1}
 WR_CSET=${WR_CSET:-master}
 SKIP_WIN=${SKIP_WIN:-0}
+AUTOLAND=${AUTOLAND:-0}
 
 echo "Running try-latest-webrender.sh at $(date)"
 
@@ -31,6 +32,13 @@ hg qrm wr-revendor || true
 hg qrm wr-regen-bindings || true
 
 hg pull -u m-c
+if [ "$AUTOLAND" != "0" ]; then
+    echo "Updating to autoland rev $AUTOLAND..."
+    hg pull autoland
+    hg update "$AUTOLAND"
+else
+    hg update central
+fi
 
 pushd $WEBRENDER_SRC
 git pull
