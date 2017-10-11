@@ -73,13 +73,25 @@ hg qnew -m "Update webrender to $CSET" wr-update-code
 
 hg qgoto wr-toml-fixup
 
+EXTRA_CRATES=
 pushd toolkit/library/rust
 sed -i -e "s/webrender_traits/webrender_${TRAITS}/g" Cargo.lock
-cargo update -p webrender_${TRAITS} -p webrender
+for ((i = 0; i < 5; i++)); do
+    cargo update -p webrender_${TRAITS} -p webrender ${EXTRA_CRATES} >$TMPDIR/update_output 2>&1 || true
+    cat $TMPDIR/update_output
+    ADDCRATE=$(cat ${TMPDIR}/update_output | awk '/failed to select a version/ { print $8 }' | tr -d '`')
+    if [ -n "$ADDCRATE" ]; then
+        echo "Adding crate $ADDCRATE to EXTRA_CRATES"
+        export EXTRA_CRATES="$EXTRA_CRATES -p $ADDCRATE"
+    else
+        break
+    fi
+done
 popd
 pushd toolkit/library/gtest/rust
 sed -i -e "s/webrender_traits/webrender_${TRAITS}/g" Cargo.lock
-cargo update -p webrender_${TRAITS} -p webrender
+echo "EXTRA_CRATES is $EXTRA_CRATES"
+cargo update -p webrender_${TRAITS} -p webrender ${EXTRA_CRATES}
 popd
 
 hg addremove
