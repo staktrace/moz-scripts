@@ -21,10 +21,10 @@ set -o pipefail
 #
 # Requirements:
 # 1. You should have two unapplied mq patches in your repo, called "wr-toml-fixup"
-#    and "wr-try". You can create this patch like so:
-#      hg qnew wr-try && hg qnew wr-toml-fixup && hg qpop -a
+#    and "wr-try". You can create these patches like so:
+#      hg qnew wr-toml-fixup && hg qnew wr-try && hg qpop -a
 #    Note that the order of these patches is important, wr-toml-fixup should be
-#    applied first.
+#    ahead of wr-try in the queue.
 #    These patches are markers that allow to inject other custom manual-fixup
 #    patches at various points in the update process. Any Cargo.toml fixes need
 #    need to go in patches that apply before wr-toml-fixup, and anything else
@@ -62,6 +62,8 @@ WR_CSET=${WR_CSET:-master}
 AUTOLAND=${AUTOLAND:-0}
 TMPDIR=${TMPDIR:-$HOME/tmp}
 
+mkdir -p $TMPDIR || true
+
 # Useful for cron
 echo "Running $0 at $(date)"
 
@@ -73,7 +75,8 @@ if [ "$APPLIED" -ne 0 ]; then
     exit 1
 fi
 
-# Delete the patches we generate ourselves
+# Delete generated patches from the last time this ran. This may emit a
+# warning if the patches don't exist; ignore the warning
 hg qrm wr-update-code || true
 hg qrm wr-update-lockfile || true
 hg qrm wr-revendor || true
