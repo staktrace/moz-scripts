@@ -3,49 +3,100 @@
 set -eu
 set -o pipefail
 
-# The test-mozilla-wr repo must have an unapplied mq patch called wr-try which
-# is created as follows:
-#   hg qnew -m "try: -b do -p macosx64,linux,linux64,win32,linux64-base-toolchains -u all[linux64-qr] -t none" wr-try
-# Any additional patches that you wish to have applied in the try push must be
-# above this patch in the patch stack (so that `hg qgoto wr-try` applies them).
-MOZILLA_SRC=$HOME/zspace/test-mozilla-wr
-WEBRENDER_SRC=$HOME/zspace/test-webrender
-MYSELF=$(readlink -f $0)
-AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
-TMPDIR=$HOME/tmp
+# This script updates webrender in a mozilla-central repo. It requires the
+# companion awk script `latest-webrender.awk` to be in the same folder as
+# itself.
+#
+# The default mode of operation applies the update and does two try pushes, one
+# for builds and linux tests; the other for windows tests. For most people this
+# is not what you want. But it's what I want, so that's why it's the default.
+#
+# The mode of operation that is most generally useful is running it with
+# PUSH_TO_TRY=0 and SKIP_WIN=1 in the environment, i.e.:
+#    SKIP_WIN=1 PUSH_TO_TRY=0 ./try-latest-webrender.sh
+# The rest of this documentation refers to this more useful mode of operation.
+#
+# WARNING: this script may result in dataloss if you run it on repos with
+# uncommitted changes, so don't do that. Commit your stuff first!
+#
+# Requirements:
+# 1. You should have two unapplied mq patches in your repo, called "wr-toml-fixup"
+#    and "wr-try". You can create this patch like so:
+#      hg qnew wr-try && hg qnew wr-toml-fixup && hg qpop -a
+#    Note that the order of these patches is important, wr-toml-fixup should be
+#    applied first.
+#    These patches are markers that allow to inject other custom manual-fixup
+#    patches at various points in the update process. Any Cargo.toml fixes need
+#    need to go in patches that apply before wr-toml-fixup, and anything else
+#    should go between wr-toml-fixup and wr-try.
+# 2. Set the environment variables:
+#    MOZILLA_SRC -> this should point to your mozilla-central checkout
+#    WEBRENDER_SRC -> this should point to your webrender git clone
+#    PUSH_TO_TRY -> set this to 0 to skip the try push which otherwise happens
+#                   by default.
+#    SKIP_WIN -> set this to 1 to skip the windows try push which otherwise
+#                happens by default. Note that if this is 0 you need an additional
+#                this requires a wr-try-win patch at the end of your queue.
+# 3. Set optional environment variables:
+#    WR_CSET -> set to a git revision in the WR repo that you want to use as the
+#               version to copy. Defaults to master if not set.
+#    HG_REV -> set to a hg revision in m-c that you want to use as the base.
+#              Defaults to central if not set.
+#    AUTOLAND -> set to a hg revision in autoland that you want to use as the
+#                base. The default is to not use autoland. This will override
+#                HG_REV if set.
+#    TMPDIR -> set to a temporary directory. Some temp working files are created
+#              into this dir. Defaults to $HOME/tmp
+
+# These should definitely be set
+MOZILLA_SRC=${MOZILLA_SRC:-$HOME/zspace/test-mozilla-wr}
+WEBRENDER_SRC=${WEBRENDER_SRC:-$HOME/zspace/test-webrender}
+
+# For most general usefulness you will want to override these:
 PUSH_TO_TRY=${PUSH_TO_TRY:-1}
-WR_CSET=${WR_CSET:-master}
 SKIP_WIN=${SKIP_WIN:-0}
+
+# These are optional but handy
+HG_REV=${HG_REV:-central}
+WR_CSET=${WR_CSET:-master}
 AUTOLAND=${AUTOLAND:-0}
+TMPDIR=${TMPDIR:-$HOME/tmp}
 
-echo "Running try-latest-webrender.sh at $(date)"
+# Useful for cron
+echo "Running $0 at $(date)"
 
+# Abort if any mq patches are applied (usually because the last attempt failed)
 pushd $MOZILLA_SRC
 APPLIED=$(hg qapplied | wc -l)
 if [ "$APPLIED" -ne 0 ]; then
     echo "Unclean state, aborting..."
     exit 1
 fi
+
+# Delete the patches we generate ourselves
 hg qrm wr-update-code || true
 hg qrm wr-update-lockfile || true
 hg qrm wr-revendor || true
 hg qrm wr-regen-bindings || true
 
+# Update to desired base rev
 hg pull -u m-c
 if [ "$AUTOLAND" != "0" ]; then
     echo "Updating to autoland rev $AUTOLAND..."
     hg pull autoland
     hg update "$AUTOLAND"
 else
-    hg update central
+    hg update "$HG_REV"
 fi
 
+# Update webrender repo to desired copy rev
 pushd $WEBRENDER_SRC
 git pull
 git checkout $WR_CSET
 CSET=$(git log -1 | grep commit | head -n 1)
 popd
 
+# Copy over th emain folders
 pushd gfx/
 rm -rf webrender webrender_traits webrender_api
 cp -R $WEBRENDER_SRC/webrender .
@@ -56,10 +107,10 @@ elif [ -d $WEBRENDER_SRC/webrender_api ]; then
 fi
 cp -R $WEBRENDER_SRC/webrender_$TRAITS .
 
-pushd $WEBRENDER_SRC
-git checkout master
-popd
-
+# Do magic to update the webrender_bindings/Cargo.toml file with updated
+# version numbers for webrender, webrender_api, euclid and app_units.
+MYSELF=$(readlink -f $0)
+AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
 WR_VERSION=$(cat webrender/Cargo.toml | awk '/^version/ { print $0; exit }')
 WRT_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^version/ { print $0; exit }')
 EUCLID_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^euclid/ { print $0; exit }')
@@ -68,11 +119,18 @@ sed -e "s/webrender_traits/webrender_${TRAITS}/g" webrender_bindings/Cargo.toml 
 mv $TMPDIR/webrender-bindings-toml webrender_bindings/Cargo.toml
 popd
 
+# Save update to mq patch wr-update-code
 hg addremove
 hg qnew -m "Update webrender to $CSET" wr-update-code
 
+# Advance to wr-toml-fixup, applying any other patches in the queue that are
+# in front of it.
 hg qgoto wr-toml-fixup
 
+# Run cargo update in toolkit/library/rust and toolkit/library/gtest/rust.
+# This might fail because of versioning reasons, so we try to detect that
+# and run cargo update again with the crates that need bumping. It tries this
+# up to 5 times before giving up
 EXTRA_CRATES=
 pushd toolkit/library/rust
 sed -i -e "s/webrender_traits/webrender_${TRAITS}/g" Cargo.lock
@@ -94,23 +152,27 @@ echo "EXTRA_CRATES is $EXTRA_CRATES"
 cargo update -p webrender_${TRAITS} -p webrender ${EXTRA_CRATES}
 popd
 
+# Save update to mq patch wr-update-lockfile
 hg addremove
 hg qnew -m "Update Cargo lockfiles" wr-update-lockfile
 
+# Re-vendor third-party libraries, save to mq patch wr-revendor
 ./mach vendor rust
 hg addremove
 hg qnew -m "Re-vendor rust dependencies" wr-revendor
 
+# Regenerate bindings, save to mq patch wr-regen-bindings
 rustup run nightly cbindgen toolkit/library/rust --crate webrender_bindings -o gfx/webrender_bindings/webrender_ffi_generated.h
 hg qnew -m "Re-generate FFI header" wr-regen-bindings
 
+# Advance to wr-try, applying any other patches in the queue that are in front
+# of it. Do try pushes as needed.
 hg qgoto wr-try
-
 if [ "$PUSH_TO_TRY" -eq 1 ]; then
-    hg push -f try -r tip || echo "Push failure (linux64)"
+    mach try syntax -b do -p macosx64,linux,linux64,win32,linux64-base-toolchains -u all[linux64-qr] -t all[linux64-qr] || echo "Push failure (linux64)"
     if [ "$SKIP_WIN" -eq 0 ]; then
         hg qgoto wr-try-win
-        hg push -f try -r tip || echo "Push failure (windows)"
+        mach try syntax -b do -p win64 -u reftest-e10s[Windows 10],reftest-e10s-1[Windows 10],reftest-e10s-2[Windows 10] -t none --no-retry || echo "Push failure (windows)"
     fi
     hg qpop -a
 else
