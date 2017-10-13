@@ -94,6 +94,7 @@ fi
 
 # Update webrender repo to desired copy rev
 pushd $WEBRENDER_SRC
+git checkout master
 git pull
 git checkout $WR_CSET
 CSET=$(git log -1 | grep commit | head -n 1)
