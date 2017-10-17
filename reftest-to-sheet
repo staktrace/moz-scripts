@@ -5,8 +5,8 @@
 SEARCH=${1:-"webrender"}
 
 find . -name "reftest.list" |
-xargs grep $SEARCH |
 sort |
+xargs grep $SEARCH |
 sed "s/:/,/" |    # put a delimiter between the reftest.list filename and the reftest annotation
 sed "s/,\(.* \)\{0,1\}\([^ ]*$SEARCH[^ ]*\) .*\(.= \)/,\"\2\",\3/" |  # strip out all non-target annotations
 sed "s/,\(.= [^#]*\)\(#.*\)\{0,1\}$/,\"_\1\"/"   # strip out comments and prefix the third column to avoid spreadsheet evaluation on =
