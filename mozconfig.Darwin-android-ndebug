@@ -13,6 +13,7 @@ ac_add_options --with-android-ndk="/Users/kats/.mozbuild/android-ndk-r11c"
 # Build options
 ac_add_options --disable-crashreporter
 ac_add_options --enable-warnings-as-errors
+ac_add_options --enable-dump-painting
 
 # Use ccache
 ac_add_options --with-ccache
