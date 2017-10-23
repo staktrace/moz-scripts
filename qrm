@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 if [ -z "$1" ]; then
-    hg qser | head -n 1 | xargs hg qrm
+    PATCHES=$(hg qunapplied | head -n 1)
 else
-    PATCHES=$(hg qser | grep "$1")
-    echo $PATCHES
-    hg qrm $PATCHES
+    PATCHES=$(hg qunapplied | grep "$1")
 fi
+
+echo $PATCHES
+hg qrm $PATCHES
