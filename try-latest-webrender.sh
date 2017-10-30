@@ -112,14 +112,15 @@ fi
 cp -R $WEBRENDER_SRC/webrender_$TRAITS .
 
 # Do magic to update the webrender_bindings/Cargo.toml file with updated
-# version numbers for webrender, webrender_api, euclid and app_units.
+# version numbers for webrender, webrender_api, euclid app_units, log.
 MYSELF=$(readlink -f $0)
 AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
 WR_VERSION=$(cat webrender/Cargo.toml | awk '/^version/ { print $0; exit }')
 WRT_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^version/ { print $0; exit }')
 EUCLID_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^euclid/ { print $0; exit }')
 AU_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^app_units/ { print $0; exit }')
-sed -e "s/webrender_traits/webrender_${TRAITS}/g" webrender_bindings/Cargo.toml | awk -f $AWKSCRIPT -v wr_version="${WR_VERSION}" -v wrt_version="${WRT_VERSION}" -v euclid_version="${EUCLID_VERSION}" au_version="${AU_VERSION}" > $TMPDIR/webrender-bindings-toml
+LOG_VERSION=$(cat webrender/Cargo.toml | awk '/^log/ { print $0; exit }')
+sed -e "s/webrender_traits/webrender_${TRAITS}/g" webrender_bindings/Cargo.toml | awk -f $AWKSCRIPT -v wr_version="${WR_VERSION}" -v wrt_version="${WRT_VERSION}" -v euclid_version="${EUCLID_VERSION}" -v au_version="${AU_VERSION}" -v log_version="${LOG_VERSION}" > $TMPDIR/webrender-bindings-toml
 mv $TMPDIR/webrender-bindings-toml webrender_bindings/Cargo.toml
 popd
 

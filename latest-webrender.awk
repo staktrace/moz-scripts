@@ -33,6 +33,10 @@ BEGIN {
     $0 = au_version;
 }
 
+/^log/ {
+    $0 = log_version;
+}
+
 /^/ {
     print $0;
 }
