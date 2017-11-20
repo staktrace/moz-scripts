@@ -25,6 +25,14 @@ BEGIN {
     in_wr_block = 0;
 }
 
+/^rayon/ {
+    $0 = rayon_version;
+}
+
+/^thread_profiler/ {
+    $0 = tp_version;
+}
+
 /^euclid/ {
     $0 = euclid_version;
 }
@@ -33,8 +41,16 @@ BEGIN {
     $0 = au_version;
 }
 
+/^gleam/ {
+    $0 = gleam_version;
+}
+
 /^log/ {
     $0 = log_version;
+}
+
+/^dwrote/ {
+    $0 = dwrote_version;
 }
 
 /^core-foundation/ {

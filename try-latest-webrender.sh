@@ -112,22 +112,30 @@ fi
 cp -R $WEBRENDER_SRC/webrender_$TRAITS .
 
 # Do magic to update the webrender_bindings/Cargo.toml file with updated
-# version numbers for webrender, webrender_api, euclid app_units, log.
+# version numbers for webrender, webrender_api, euclid, app_units, log, etc.
 MYSELF=$(readlink -f $0)
 AWKSCRIPT=$(dirname $MYSELF)/latest-webrender.awk
 WR_VERSION=$(cat webrender/Cargo.toml | awk '/^version/ { print $0; exit }')
 WRT_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^version/ { print $0; exit }')
+RAYON_VERSION=$(cat webrender/Cargo.toml | awk '/^rayon/ { print $0; exit }')
+TP_VERSION=$(cat webrender/Cargo.toml | awk '/^thread_profiler/ { print $0; exit }')
 EUCLID_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^euclid/ { print $0; exit }')
 AU_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^app_units/ { print $0; exit }')
+GLEAM_VERSION=$(cat webrender/Cargo.toml | awk '/^gleam/ { print $0; exit }')
 LOG_VERSION=$(cat webrender/Cargo.toml | awk '/^log/ { print $0; exit }')
-CF_VERSION=$(cat webrender/Cargo.toml | awk '/^core-foundation/ { print $0; exit }')
-CG_VERSION=$(cat webrender/Cargo.toml | awk '/^core-graphics/ { print $0; exit }')
+DWROTE_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^dwrote/ { print $0; exit }')
+CF_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^core-foundation/ { print $0; exit }')
+CG_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^core-graphics/ { print $0; exit }')
 sed -e "s/webrender_traits/webrender_${TRAITS}/g" webrender_bindings/Cargo.toml | awk -f $AWKSCRIPT \
     -v wr_version="${WR_VERSION}" \
     -v wrt_version="${WRT_VERSION}" \
+    -v rayon_version="${RAYON_VERSION}" \
+    -v tp_version="${TP_VERSION}" \
     -v euclid_version="${EUCLID_VERSION}" \
     -v au_version="${AU_VERSION}" \
+    -v gleam_version="${GLEAM_VERSION}" \
     -v log_version="${LOG_VERSION}" \
+    -v dwrote_version="${DWROTE_VERSION}" \
     -v cf_version="${CF_VERSION}" \
     -v cg_version="${CG_VERSION}" \
     > $TMPDIR/webrender-bindings-toml
