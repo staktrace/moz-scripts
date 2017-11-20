@@ -120,7 +120,17 @@ WRT_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^version/ { print $0; e
 EUCLID_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^euclid/ { print $0; exit }')
 AU_VERSION=$(cat webrender_${TRAITS}/Cargo.toml | awk '/^app_units/ { print $0; exit }')
 LOG_VERSION=$(cat webrender/Cargo.toml | awk '/^log/ { print $0; exit }')
-sed -e "s/webrender_traits/webrender_${TRAITS}/g" webrender_bindings/Cargo.toml | awk -f $AWKSCRIPT -v wr_version="${WR_VERSION}" -v wrt_version="${WRT_VERSION}" -v euclid_version="${EUCLID_VERSION}" -v au_version="${AU_VERSION}" -v log_version="${LOG_VERSION}" > $TMPDIR/webrender-bindings-toml
+CF_VERSION=$(cat webrender/Cargo.toml | awk '/^core-foundation/ { print $0; exit }')
+CG_VERSION=$(cat webrender/Cargo.toml | awk '/^core-graphics/ { print $0; exit }')
+sed -e "s/webrender_traits/webrender_${TRAITS}/g" webrender_bindings/Cargo.toml | awk -f $AWKSCRIPT \
+    -v wr_version="${WR_VERSION}" \
+    -v wrt_version="${WRT_VERSION}" \
+    -v euclid_version="${EUCLID_VERSION}" \
+    -v au_version="${AU_VERSION}" \
+    -v log_version="${LOG_VERSION}" \
+    -v cf_version="${CF_VERSION}" \
+    -v cg_version="${CG_VERSION}" \
+    > $TMPDIR/webrender-bindings-toml
 mv $TMPDIR/webrender-bindings-toml webrender_bindings/Cargo.toml
 popd
 

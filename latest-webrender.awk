@@ -37,6 +37,14 @@ BEGIN {
     $0 = log_version;
 }
 
+/^core-foundation/ {
+    $0 = cf_version;
+}
+
+/^core-graphics/ {
+    $0 = gc_version;
+}
+
 /^/ {
     print $0;
 }
