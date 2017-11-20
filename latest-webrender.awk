@@ -58,7 +58,7 @@ BEGIN {
 }
 
 /^core-graphics/ {
-    $0 = gc_version;
+    $0 = cg_version;
 }
 
 /^/ {
