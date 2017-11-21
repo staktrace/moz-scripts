@@ -180,7 +180,7 @@ hg addremove
 hg qnew -m "Update Cargo lockfiles" wr-update-lockfile
 
 # Re-vendor third-party libraries, save to mq patch wr-revendor
-./mach vendor rust
+./mach vendor rust # --build-peers-said-large-imports-were-ok
 hg addremove
 hg qnew -m "Re-vendor rust dependencies" wr-revendor
 
