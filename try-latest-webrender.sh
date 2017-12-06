@@ -61,6 +61,7 @@ HG_REV=${HG_REV:-central}
 WR_CSET=${WR_CSET:-master}
 AUTOLAND=${AUTOLAND:-0}
 TMPDIR=${TMPDIR:-$HOME/tmp}
+EXTRA_CRATES=${EXTRA_CRATES:-}
 
 mkdir -p $TMPDIR || true
 
@@ -158,7 +159,6 @@ hg qgoto wr-toml-fixup
 # This might fail because of versioning reasons, so we try to detect that
 # and run cargo update again with the crates that need bumping. It tries this
 # up to 5 times before giving up
-EXTRA_CRATES=
 pushd toolkit/library/rust
 sed -i -e "s/webrender_traits/webrender_${TRAITS}/g" Cargo.lock
 for ((i = 0; i < 5; i++)); do
