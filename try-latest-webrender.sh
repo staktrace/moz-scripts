@@ -144,7 +144,11 @@ popd
 
 # Save update to mq patch wr-update-code
 hg addremove
-hg qnew -m "Update webrender to $CSET" wr-update-code
+if [ "$WR_CSET" -eq "master" ]; then
+    hg qnew -m "Update webrender to $CSET" wr-update-code
+else
+    hg qnew -m "Update webrender to $WR_CSET ($CSET)" wr-update-code
+fi
 
 # Advance to wr-toml-fixup, applying any other patches in the queue that are
 # in front of it.
