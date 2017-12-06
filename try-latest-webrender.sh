@@ -144,7 +144,7 @@ popd
 
 # Save update to mq patch wr-update-code
 hg addremove
-if [ "$WR_CSET" -eq "master" ]; then
+if [ "$WR_CSET" == "master" ]; then
     hg qnew -m "Update webrender to $CSET" wr-update-code
 else
     hg qnew -m "Update webrender to $WR_CSET ($CSET)" wr-update-code
