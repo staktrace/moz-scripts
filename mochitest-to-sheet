@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+# Run this while your $PWD is the root of your mozilla-central tree
+
+SEARCH=${1:-"webrender"}
+
+find . -name "mochitest*.ini" -type f |
+sort |
+while read file; do
+    awk "/^\[/ { test=\$0 } /$SEARCH/ { split(\$0,x,/#/); print \"$file,\" test \",\" x[1] }" $file
+done
