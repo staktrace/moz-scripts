@@ -196,7 +196,7 @@ hg qnew -m "Re-generate FFI header" wr-regen-bindings
 # of it. Do try pushes as needed.
 hg qgoto wr-try
 if [ "$PUSH_TO_TRY" -eq 1 ]; then
-    mach try syntax -b do -p macosx64,linux,linux64,win32,linux64-base-toolchains -u all[linux64-qr] -t all[linux64-qr] || echo "Push failure (linux64)"
+    mach try syntax -b do -p macosx64,linux,linux64,win64,linux64-base-toolchains -u all[linux64-qr,windows10-64-qr] -t all[linux64-qr,windows10-64-qr] || echo "Push failure (linux64)"
     if [ "$SKIP_WIN" -eq 0 ]; then
         hg qgoto wr-try-win
         mach try syntax -b do -p win64 -u 'reftest-e10s[Windows 10],reftest-e10s-1[Windows 10],reftest-e10s-2[Windows 10]' -t none --no-retry || echo "Push failure (windows)"
