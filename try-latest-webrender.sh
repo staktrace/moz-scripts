@@ -103,7 +103,7 @@ popd
 
 # Copy over th emain folders
 pushd gfx/
-rm -rf webrender webrender_traits webrender_api
+rm -rf webrender webrender_traits webrender_api wrench
 cp -R $WEBRENDER_SRC/webrender .
 if [ -d $WEBRENDER_SRC/webrender_traits ]; then
     TRAITS=traits
@@ -111,6 +111,13 @@ elif [ -d $WEBRENDER_SRC/webrender_api ]; then
     TRAITS=api
 fi
 cp -R $WEBRENDER_SRC/webrender_$TRAITS .
+cp -R $WEBRENDER_SRC/wrench .
+rm -rf wrench/reftest wrench/benchmarks
+NUMDIRS=$(find wrench -type d -maxdepth 1 | wc -l)
+if [ $NUMDIRS -ne 4 ]; then
+    echo "Error: wrench/ has an unexpected number of subfolders!"
+    exit 1
+fi
 
 # Do magic to update the webrender_bindings/Cargo.toml file with updated
 # version numbers for webrender, webrender_api, euclid, app_units, log, etc.
