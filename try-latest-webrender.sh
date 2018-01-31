@@ -112,7 +112,7 @@ elif [ -d $WEBRENDER_SRC/webrender_api ]; then
 fi
 cp -R $WEBRENDER_SRC/webrender_$TRAITS .
 cp -R $WEBRENDER_SRC/wrench .
-rm -rf wrench/reftests wrench/benchmarks wrench/scripts
+rm -rf wrench/reftests wrench/benchmarks wrench/script
 NUMDIRS=$(find wrench -maxdepth 1 -type d | wc -l)
 if [ $NUMDIRS -ne 3 ]; then
     echo "Error: wrench/ has an unexpected number of subfolders!"
