@@ -1,1 +1,0 @@
-reinst.sh
