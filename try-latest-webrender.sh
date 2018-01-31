@@ -148,6 +148,7 @@ sed -e "s/webrender_traits/webrender_${TRAITS}/g" webrender_bindings/Cargo.toml 
     -v cg_version="${CG_VERSION}" \
     > $TMPDIR/webrender-bindings-toml
 mv $TMPDIR/webrender-bindings-toml webrender_bindings/Cargo.toml
+echo $CSET | sed -e "s/commit //" > webrender_bindings/revision.txt
 popd
 
 # Save update to mq patch wr-update-code
