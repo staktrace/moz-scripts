@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+USAGE="$0 <hash>"
+HASH=${1?$USAGE}
+
+if [ ! -d nightly-$HASH ]
+then
+  mkdir nightly-$HASH
+fi
+if [ ! -f target-$HASH.dmg ]
+then
+  mv ../target.dmg ./target-$HASH.dmg
+fi
+hdiutil attach -mountPoint nightly-$HASH target-$HASH.dmg
+MOZ_WEBRENDER=1 nightly-$HASH/*Nightly.app/Contents/MacOS/firefox -P tmp
