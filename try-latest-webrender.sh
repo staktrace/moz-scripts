@@ -163,12 +163,10 @@ fi
 # in front of it.
 hg qgoto wr-toml-fixup
 
-# Run cargo update in toolkit/library/rust and toolkit/library/gtest/rust.
+# Run cargo update
 # This might fail because of versioning reasons, so we try to detect that
 # and run cargo update again with the crates that need bumping. It tries this
 # up to 5 times before giving up
-pushd toolkit/library/rust
-sed -i -e "s/webrender_traits/webrender_${TRAITS}/g" Cargo.lock
 for ((i = 0; i < 5; i++)); do
     cargo update -p webrender_${TRAITS} -p webrender ${EXTRA_CRATES} >$TMPDIR/update_output 2>&1 || true
     cat $TMPDIR/update_output
@@ -180,12 +178,6 @@ for ((i = 0; i < 5; i++)); do
         break
     fi
 done
-popd
-pushd toolkit/library/gtest/rust
-sed -i -e "s/webrender_traits/webrender_${TRAITS}/g" Cargo.lock
-echo "EXTRA_CRATES is $EXTRA_CRATES"
-cargo update -p webrender_${TRAITS} -p webrender ${EXTRA_CRATES}
-popd
 
 # Save update to mq patch wr-update-lockfile
 hg addremove
