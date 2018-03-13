@@ -189,7 +189,7 @@ hg addremove
 hg qnew -m "Re-vendor rust dependencies" wr-revendor
 
 # Regenerate bindings, save to mq patch wr-regen-bindings
-rustup run nightly cbindgen toolkit/library/rust --crate webrender_bindings -o gfx/webrender_bindings/webrender_ffi_generated.h
+rustup run nightly cbindgen toolkit/library/rust --lockfile Cargo.lock --crate webrender_bindings -o gfx/webrender_bindings/webrender_ffi_generated.h
 hg qnew -m "Re-generate FFI header" wr-regen-bindings
 
 # Advance to wr-try, applying any other patches in the queue that are in front
