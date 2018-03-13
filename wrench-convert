@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+xr ../target/release/wrench --save yaml replay --play $*
