@@ -12,8 +12,8 @@ set -o pipefail
 # is not what you want. But it's what I want, so that's why it's the default.
 #
 # The mode of operation that is most generally useful is running it with
-# PUSH_TO_TRY=0 and SKIP_WIN=1 in the environment, i.e.:
-#    SKIP_WIN=1 PUSH_TO_TRY=0 ./try-latest-webrender.sh
+# PUSH_TO_TRY=0 in the environment, i.e.:
+#    PUSH_TO_TRY=0 ./try-latest-webrender.sh
 # The rest of this documentation refers to this more useful mode of operation.
 #
 # WARNING: this script may result in dataloss if you run it on repos with
@@ -34,9 +34,6 @@ set -o pipefail
 #    WEBRENDER_SRC -> this should point to your webrender git clone
 #    PUSH_TO_TRY -> set this to 0 to skip the try push which otherwise happens
 #                   by default.
-#    SKIP_WIN -> set this to 1 to skip the windows try push which otherwise
-#                happens by default. Note that if this is 0 you need an additional
-#                this requires a wr-try-win patch at the end of your queue.
 # 3. Set optional environment variables:
 #    WR_CSET -> set to a git revision in the WR repo that you want to use as the
 #               version to copy. Defaults to master if not set.
@@ -54,7 +51,6 @@ WEBRENDER_SRC=${WEBRENDER_SRC:-$HOME/zspace/test-webrender}
 
 # For most general usefulness you will want to override these:
 PUSH_TO_TRY=${PUSH_TO_TRY:-1}
-SKIP_WIN=${SKIP_WIN:-0}
 
 # These are optional but handy
 HG_REV=${HG_REV:-central}
@@ -197,10 +193,6 @@ hg qnew -m "Re-generate FFI header" wr-regen-bindings
 hg qgoto wr-try
 if [ "$PUSH_TO_TRY" -eq 1 ]; then
     mach try syntax -b do -p macosx64,linux,linux64,win64,linux64-base-toolchains -u all[linux64-qr,windows10-64-qr] -t all[linux64-qr,windows10-64-qr] || echo "Push failure (linux64)"
-    if [ "$SKIP_WIN" -eq 0 ]; then
-        hg qgoto wr-try-win
-        mach try syntax -b do -p win64 -u 'reftest-e10s[Windows 10],reftest-e10s-1[Windows 10],reftest-e10s-2[Windows 10]' -t none --no-retry || echo "Push failure (windows)"
-    fi
     hg qpop -a
 else
     echo "Skipping push to try because PUSH_TO_TRY != 1"
