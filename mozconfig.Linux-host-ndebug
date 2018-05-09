@@ -11,3 +11,6 @@ ac_add_options --disable-crashreporter
 # ac_add_options --disable-install-strip
 ac_add_options --disable-elf-hack
 ac_add_options --enable-dump-painting
+
+export CC=$HOME/.mozbuild/clang/bin/clang
+export CXX=$HOME/.mozbuild/clang/bin/clang++

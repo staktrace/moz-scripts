@@ -10,3 +10,5 @@ ac_add_options --disable-elf-hack
 ac_add_options --enable-dump-painting
 
 export RUSTC_OPT_LEVEL=3
+export CC=$HOME/.mozbuild/clang/bin/clang
+export CXX=$HOME/.mozbuild/clang/bin/clang++
