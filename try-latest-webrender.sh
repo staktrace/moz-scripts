@@ -7,14 +7,11 @@ set -o pipefail
 # companion awk script `latest-webrender.awk` to be in the same folder as
 # itself.
 #
-# The default mode of operation applies the update and does two try pushes, one
-# for builds and linux tests; the other for windows tests. For most people this
-# is not what you want. But it's what I want, so that's why it's the default.
-#
-# The mode of operation that is most generally useful is running it with
+# The default mode of operation applies the update and does a try push with all
+# the relevant webrender jobs. If you don't want it to do the try push, (e.g.
+# if you want to build locally and test stuff), then you can run with
 # PUSH_TO_TRY=0 in the environment, i.e.:
 #    PUSH_TO_TRY=0 ./try-latest-webrender.sh
-# The rest of this documentation refers to this more useful mode of operation.
 #
 # WARNING: this script may result in dataloss if you run it on repos with
 # uncommitted changes, so don't do that. Commit your stuff first!
@@ -80,10 +77,10 @@ hg qrm wr-revendor || true
 hg qrm wr-regen-bindings || true
 
 # Update to desired base rev
-hg pull -u m-c
+hg pull -u https://hg.mozilla.org/mozilla-central/
 if [ "$AUTOLAND" != "0" ]; then
     echo "Updating to autoland rev $AUTOLAND..."
-    hg pull autoland
+    hg pull https://hg.mozilla.org/integration/autoland/
     hg update "$AUTOLAND"
 else
     hg update "$HG_REV"
@@ -97,7 +94,7 @@ git checkout $WR_CSET
 CSET=$(git log -1 | grep commit | head -n 1)
 popd
 
-# Copy over th emain folders
+# Copy over the main folders
 pushd gfx/
 rm -rf webrender webrender_traits webrender_api wrench
 cp -R $WEBRENDER_SRC/webrender .
