@@ -7,5 +7,5 @@ SEARCH=${1:-"webrender"}
 find testing/web-platform/meta -name "*.ini" -type f |
 sort |
 while read file; do
-    awk "/$SEARCH/ { print \"$file,\" \$0 }" $file
+    awk "/$SEARCH/ { print \"$file,\" \$0 }" <(collapser $file)
 done
