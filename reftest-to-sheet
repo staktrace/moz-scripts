@@ -4,7 +4,7 @@
 
 SEARCH=${1:-"webrender"}
 
-find . -name "reftest.list" |
+find . -name "reftest*.list" |
 sort |
 xargs grep $SEARCH |
 sed "s/:/,/" |    # put a delimiter between the reftest.list filename and the reftest annotation
