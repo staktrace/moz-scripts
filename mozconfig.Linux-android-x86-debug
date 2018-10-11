@@ -6,7 +6,7 @@ mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android-x86-debug
 
 # Build Firefox for Android:
 ac_add_options --enable-application=mobile/android
-ac_add_options --target=i386-linux-android
+ac_add_options --target=x86_64-linux-android
 
 # With the following Android SDK and NDK:
 ac_add_options --with-android-sdk="/home/kats/.mozbuild/android-sdk-linux"
@@ -18,9 +18,13 @@ ac_add_options --enable-debug
 ac_add_options --disable-elf-hack
 ac_add_options --enable-tests
 ac_add_options --enable-warnings-as-errors
+ac_add_options --enable-dump-painting
+ac_add_options --disable-crashreporter
 
 # Use ccache
 ac_add_options --with-ccache
 
-export HOST_CC=$HOME/.mozbuild/clang/bin/clang
-export HOST_CXX=$HOME/.mozbuild/clang/bin/clang++
+export CC="/home/kats/.mozbuild/clang/bin/clang"
+export CXX="/home/kats/.mozbuild/clang/bin/clang++"
+export HOST_CC="/home/kats/.mozbuild/clang/bin/clang"
+export HOST_CXX="/home/kats/.mozbuild/clang/bin/clang++"
