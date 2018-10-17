@@ -34,11 +34,9 @@ set -o pipefail
 # 3. Set optional environment variables:
 #    WR_CSET -> set to a git revision in the WR repo that you want to use as the
 #               version to copy. Defaults to master if not set.
-#    HG_REV -> set to a hg revision in m-c that you want to use as the base.
-#              Defaults to central if not set.
-#    AUTOLAND -> set to a hg revision in autoland that you want to use as the
-#                base. The default is to not use autoland. This will override
-#                HG_REV if set.
+#    HG_REV -> set to a hg revision in m-c or autoland that you want to use as
+#              the base. Defaults to central if not set, or autoland if there
+#              is already an update inflight on autoland.
 #    TMPDIR -> set to a temporary directory. Some temp working files are created
 #              into this dir. Defaults to $HOME/tmp
 
@@ -50,9 +48,8 @@ WEBRENDER_SRC=${WEBRENDER_SRC:-$HOME/zspace/test-webrender}
 PUSH_TO_TRY=${PUSH_TO_TRY:-1}
 
 # These are optional but handy
-HG_REV=${HG_REV:-central}
+HG_REV=${HG_REV:-0}
 WR_CSET=${WR_CSET:-master}
-AUTOLAND=${AUTOLAND:-0}
 TMPDIR=${TMPDIR:-$HOME/tmp}
 EXTRA_CRATES=${EXTRA_CRATES:-}
 
@@ -77,13 +74,22 @@ hg qrm wr-revendor || true
 hg qrm wr-regen-bindings || true
 
 # Update to desired base rev
-hg pull -u https://hg.mozilla.org/mozilla-central/
-if [ "$AUTOLAND" != "0" ]; then
-    echo "Updating to autoland rev $AUTOLAND..."
-    hg pull https://hg.mozilla.org/integration/autoland/
-    hg update "$AUTOLAND"
-else
+hg pull https://hg.mozilla.org/mozilla-central/
+hg pull https://hg.mozilla.org/integration/autoland/
+if [ "$HG_REV" != "0" ]; then
+    echo "Updating to base rev $HG_REV..."
     hg update "$HG_REV"
+else
+    set +e
+    hg diff -r central -r autoland gfx/webrender_bindings/revision.txt | grep "revision.txt"
+    if [ ${PIPESTATUS[1]} -eq 0 ]; then
+        # There's an update inflight on autoland, so use that as the base
+        hg update autoland
+    else
+        # Otherwise use central
+        hg update central
+    fi
+    set -e
 fi
 
 # Update webrender repo to desired copy rev
