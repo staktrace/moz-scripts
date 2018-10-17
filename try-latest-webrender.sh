@@ -43,6 +43,7 @@ set -o pipefail
 # These should definitely be set
 MOZILLA_SRC=${MOZILLA_SRC:-$HOME/zspace/test-mozilla-wr}
 WEBRENDER_SRC=${WEBRENDER_SRC:-$HOME/zspace/test-webrender}
+LAST_WR_TESTED=$(cat $HOME/zspace/last_wr_tested || echo "")
 
 # For most general usefulness you will want to override these:
 PUSH_TO_TRY=${PUSH_TO_TRY:-1}
@@ -64,6 +65,23 @@ APPLIED=$(hg qapplied | wc -l)
 if [ "$APPLIED" -ne 0 ]; then
     echo "Unclean state, aborting..."
     exit 1
+fi
+
+# Update webrender repo to desired copy rev
+pushd $WEBRENDER_SRC
+git checkout master
+git pull
+git checkout $WR_CSET
+CSET=$(git log -1 | grep commit | head -n 1)
+popd
+
+if [[ "$WR_CSET" == "master" && "$HG_REV" == "0" ]]; then
+    # default configuration, check/update last_wr_tested
+    if [ "$CSET" == "$LAST_WR_TESTED" ]; then
+        echo "No new WR revisions, aborting..."
+        exit 0
+    fi
+    echo "$CSET" > $HOME/zspace/last_wr_tested
 fi
 
 # Delete generated patches from the last time this ran. This may emit a
@@ -91,14 +109,6 @@ else
     fi
     set -e
 fi
-
-# Update webrender repo to desired copy rev
-pushd $WEBRENDER_SRC
-git checkout master
-git pull
-git checkout $WR_CSET
-CSET=$(git log -1 | grep commit | head -n 1)
-popd
 
 # Copy over the main folders
 pushd gfx/
