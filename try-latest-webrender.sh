@@ -195,16 +195,22 @@ done
 
 # Save update to mq patch wr-update-lockfile
 hg addremove
-hg qnew -m "Bug $BUGNUMBER - Update Cargo lockfiles" wr-update-lockfile
+if [[ $(hg status | wc -l) -ne 0 ]]; then
+    hg qnew -m "Bug $BUGNUMBER - Update Cargo lockfiles" wr-update-lockfile
+fi
 
 # Re-vendor third-party libraries, save to mq patch wr-revendor
 ./mach vendor rust # --build-peers-said-large-imports-were-ok
 hg addremove
-hg qnew -m "Bug $BUGNUMBER - Re-vendor rust dependencies" wr-revendor
+if [[ $(hg status | wc -l) -ne 0 ]]; then
+    hg qnew -m "Bug $BUGNUMBER - Re-vendor rust dependencies" wr-revendor
+fi
 
 # Regenerate bindings, save to mq patch wr-regen-bindings
 rustup run nightly cbindgen toolkit/library/rust --lockfile Cargo.lock --crate webrender_bindings -o gfx/webrender_bindings/webrender_ffi_generated.h
-hg qnew -m "Bug $BUGNUMBER - Re-generate FFI header" wr-regen-bindings
+if [[ $(hg status | wc -l) -ne 0 ]]; then
+    hg qnew -m "Bug $BUGNUMBER - Re-generate FFI header" wr-regen-bindings
+fi
 
 # Advance to wr-try, applying any other patches in the queue that are in front
 # of it. Do try pushes as needed.
