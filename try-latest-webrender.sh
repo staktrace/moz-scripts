@@ -53,6 +53,7 @@ HG_REV=${HG_REV:-0}
 WR_CSET=${WR_CSET:-master}
 TMPDIR=${TMPDIR:-$HOME/tmp}
 EXTRA_CRATES=${EXTRA_CRATES:-}
+BUGNUMBER=${BUGNUMBER:-0}
 
 mkdir -p $TMPDIR || true
 
@@ -160,12 +161,16 @@ mv $TMPDIR/webrender-bindings-toml webrender_bindings/Cargo.toml
 echo $CSET | sed -e "s/commit //" > webrender_bindings/revision.txt
 popd
 
+if [ "$BUGNUMBER" == "0" ]; then
+    BUGNUMBER=$(curl -s -H "Accept: application/json" https://bugzilla.mozilla.org/rest/bug/wr-future-update | read-json.py "bugs/0/id")
+fi
+
 # Save update to mq patch wr-update-code
 hg addremove
 if [ "$WR_CSET" == "master" ]; then
-    hg qnew -m "Update webrender to $CSET" wr-update-code
+    hg qnew -m "Bug $BUGNUMBER - Update webrender to $CSET" wr-update-code
 else
-    hg qnew -m "Update webrender to $WR_CSET ($CSET)" wr-update-code
+    hg qnew -m "Bug $BUGNUMBER - Update webrender to $WR_CSET ($CSET)" wr-update-code
 fi
 
 # Advance to wr-toml-fixup, applying any other patches in the queue that are
@@ -190,16 +195,16 @@ done
 
 # Save update to mq patch wr-update-lockfile
 hg addremove
-hg qnew -m "Update Cargo lockfiles" wr-update-lockfile
+hg qnew -m "Bug $BUGNUMBER - Update Cargo lockfiles" wr-update-lockfile
 
 # Re-vendor third-party libraries, save to mq patch wr-revendor
 ./mach vendor rust # --build-peers-said-large-imports-were-ok
 hg addremove
-hg qnew -m "Re-vendor rust dependencies" wr-revendor
+hg qnew -m "Bug $BUGNUMBER - Re-vendor rust dependencies" wr-revendor
 
 # Regenerate bindings, save to mq patch wr-regen-bindings
 rustup run nightly cbindgen toolkit/library/rust --lockfile Cargo.lock --crate webrender_bindings -o gfx/webrender_bindings/webrender_ffi_generated.h
-hg qnew -m "Re-generate FFI header" wr-regen-bindings
+hg qnew -m "Bug $BUGNUMBER - Re-generate FFI header" wr-regen-bindings
 
 # Advance to wr-try, applying any other patches in the queue that are in front
 # of it. Do try pushes as needed.
