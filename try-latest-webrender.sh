@@ -88,7 +88,6 @@ fi
 # Delete generated patches from the last time this ran. This may emit a
 # warning if the patches don't exist; ignore the warning
 hg qrm wr-update-code || true
-hg qrm wr-update-lockfile || true
 hg qrm wr-revendor || true
 hg qrm wr-regen-bindings || true
 
@@ -193,14 +192,8 @@ for ((i = 0; i < 5; i++)); do
     fi
 done
 
-# Save update to mq patch wr-update-lockfile
-hg addremove
-if [[ $(hg status | wc -l) -ne 0 ]]; then
-    hg qnew -m "Bug $BUGNUMBER - Update Cargo lockfiles" wr-update-lockfile
-fi
-
-# Re-vendor third-party libraries, save to mq patch wr-revendor
-./mach vendor rust # --build-peers-said-large-imports-were-ok
+# Re-vendor third-party libraries, save Cargo.lock+revendoring to mq patch wr-revendor
+./mach vendor rust --ignore-modified # --build-peers-said-large-imports-were-ok
 hg addremove
 if [[ $(hg status | wc -l) -ne 0 ]]; then
     hg qnew -m "Bug $BUGNUMBER - Re-vendor rust dependencies" wr-revendor
