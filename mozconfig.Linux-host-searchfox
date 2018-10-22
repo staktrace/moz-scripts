@@ -1,0 +1,30 @@
+. $topsrcdir/browser/config/mozconfig
+
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-host-debug
+mk_add_options AUTOCLOBBER=1
+
+ac_add_options --enable-warnings-as-errors
+ac_add_options --enable-optimize="-g -Og"
+ac_add_options --enable-debug-symbols
+ac_add_options --enable-debug
+# ac_add_options --enable-tests
+ac_add_options --disable-crashreporter
+# ac_add_options --disable-install-strip
+ac_add_options --disable-elf-hack
+ac_add_options --enable-dump-painting
+
+export MOZ_RUN_GTEST=1
+
+export CC=$HOME/.mozbuild/clang/bin/clang
+export CXX=$HOME/.mozbuild/clang/bin/clang++
+
+# Save rust analysis (this requires unlocking the unstable features)
+export RUSTC_BOOTSTRAP=1
+export RUSTFLAGS="-Zsave-analysis"
+
+# Add the static checker
+ac_add_options --enable-clang-plugin
+ac_add_options --enable-mozsearch-plugin
+
+# For this config to work, do `sudo mv /usr/lib/gcc{,.away}` first.
+# See bug 1418365 comment 6 for details
