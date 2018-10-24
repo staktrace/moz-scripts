@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+ln -sf $HOME/.arcrc_gfx $HOME/.arcrc
+moz-phab $*
+ln -sf $HOME/.arcrc_kgupta $HOME/.arcrc
