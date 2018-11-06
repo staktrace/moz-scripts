@@ -14,14 +14,14 @@ ac_add_options --with-android-ndk="/home/kats/.mozbuild/android-ndk"
 
 # Build options
 ac_add_options --disable-elf-hack
-ac_add_options --enable-warnings-as-errors
+# ac_add_options --enable-warnings-as-errors
 ac_add_options --enable-dump-painting
 ac_add_options --disable-crashreporter
 
 # Use ccache
 ac_add_options --with-ccache
 
-export CC="/home/kats/.mozbuild/clang/bin/clang"
-export CXX="/home/kats/.mozbuild/clang/bin/clang++"
+# export CC="/home/kats/.mozbuild/clang/bin/clang"
+# export CXX="/home/kats/.mozbuild/clang/bin/clang++"
 export HOST_CC="/home/kats/.mozbuild/clang/bin/clang"
 export HOST_CXX="/home/kats/.mozbuild/clang/bin/clang++"
