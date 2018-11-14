@@ -34,6 +34,7 @@ import traceback
 import urllib2
 import uuid
 from distutils.version import LooseVersion
+from subprocess import Popen, PIPE
 
 # Known Issues
 # - reordering, folding, etc commits doesn't result in the stack being updated
@@ -100,7 +101,7 @@ Bug #: {bug_id}
 """.strip()
 ARC_OUTPUT_REV_URL_RE = re.compile(r"^\s*Revision URI: (http.+)$", flags=re.MULTILINE)
 ARC_DIFF_REV_RE = re.compile(
-    r"^\s*Differential Revision:\s*https://.+/D(\d+)\s*$", flags=re.MULTILINE
+    r"^\s*Differential Revision:\s*https?://.+/D(\d+)\s*$", flags=re.MULTILINE
 )
 
 # If a commit body matches **all** of these, reject it.  This is to avoid the
@@ -118,8 +119,8 @@ LIST_RE = re.compile(LIST)
 IRC_NICK = (
     r"[a-zA-Z0-9\-\_!]+"
 )  # Note this includes !, which is different from commitparser
-REVIEWERS_RE = re.compile(
-    r"([\s(.\[;,])(r[=?])("
+REVIEWERS_RE = (
+    r"([\s(.\[;,])(r%s)("
     + IRC_NICK
     + r"(?:"
     + LIST
@@ -127,6 +128,9 @@ REVIEWERS_RE = re.compile(
     + IRC_NICK
     + r")*)?"
 )
+ALL_REVIEWERS_RE = re.compile(REVIEWERS_RE % r"[=?]")
+REQUEST_REVIEWERS_RE = re.compile(REVIEWERS_RE % r"\?")
+GRANTED_REVIEWERS_RE = re.compile(REVIEWERS_RE % r"=")
 R_SPECIFIER_RE = re.compile(r"\br[=?]")
 
 MINIMUM_MERCURIAL_VERSION = LooseVersion("4.3.3")
@@ -134,6 +138,25 @@ MINIMUM_MERCURIAL_VERSION = LooseVersion("4.3.3")
 #
 # Utilities
 #
+
+
+def which_path(path):
+    """Check if an executable is provided. Fall back to which if not.
+
+    Args:
+        path: (str) filename or path to check for an executable command
+
+    Returns:
+        The full path of a command or None.
+    """
+    if (
+        os.path.exists(path)
+        and os.access(path, os.F_OK | os.X_OK)
+        and not os.path.isdir(path)
+    ):
+        return path
+
+    return which(path)
 
 
 def which(filename):
@@ -176,14 +199,42 @@ def check_call(command, **kwargs):
     subprocess.check_call(command, **kwargs)
 
 
-def check_output(command, cwd=None, split=True, strip=True, never_log=False):
+def check_call_by_line(command, cwd=None, never_log=False):
+    # similar to check_call, yields for line-by-line processing
+    logger.debug("$ %s" % " ".join(shell_quote(s) for s in command))
+
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, cwd=cwd)
+    try:
+        for line in iter(process.stdout.readline, ""):
+            line = line.rstrip()
+            if not never_log:
+                logger.debug("> %s" % line)
+            yield line
+    finally:
+        process.stdout.close()
+        process.wait()
+
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, command)
+
+
+def check_output(
+    command, cwd=None, split=True, strip=True, never_log=False, stdin=None, env=None
+):
     # wrapper around subprocess.check_output with debug output and splitting
     logger.debug("$ %s" % " ".join(shell_quote(s) for s in command))
+    kwargs = dict(cwd=cwd, stdin=stdin)
+    if env:
+        kwargs["env"] = env
+
     try:
-        output = subprocess.check_output(command, cwd=cwd)
+        output = subprocess.check_output(command, **kwargs)
     except subprocess.CalledProcessError as e:
         logger.debug(e.output)
-        raise Exception("command '%s' failed to complete successfully" % command[0])
+        raise CommandError(
+            "command '%s' failed to complete successfully" % command[0], e.returncode
+        )
+
     if strip:
         output = output.rstrip()
     if output and not never_log:
@@ -228,7 +279,8 @@ def get_char():
             return sys.stdin.read(1)
         except termios.error:
             # Fallback on readline() if we failed to put the terminal into raw mode.
-            return sys.stdin.readline().strip().lower()
+            ch = sys.stdin.readline().strip()
+            return "\n" if ch == "" else ch[0]
         finally:
             if old_term_attrs:
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_term_attrs)
@@ -250,16 +302,46 @@ def prompt(question, options):
     default = options[0][0].lower()
     options = {o[0].lower(): o for o in options}
     while res not in options:
-        res = get_char()
+        res = get_char().lower()
         if res in (chr(10), chr(13)):  # return
             res = default
         elif res == chr(3) or res == chr(27):  # ^C, escape
-            print("^C")
+            sys.stdout.write("^C\n")
+            sys.stdout.flush()
             sys.exit(1)
         if res in options:
-            print(options[res])
+            sys.stdout.write("%s\n" % options[res])
+            sys.stdout.flush()
 
     return options[res]
+
+
+def parse_config(config_list, filter_func=None):
+    """Parses list with "name=value" strings.
+
+    Args:
+        config_list: A list of "name=value" strings
+        filter_func: A function taking the parsing config name and value for each line.
+            If the function returns True the config value will be included in the final dict
+
+    Returns: A dict containing parsed data.
+    """
+    config = dict()
+    for line in config_list:
+        # On Windows config file is likely to be cp1252 encoded, not UTF-8.
+        if IS_WINDOWS:
+            try:
+                line = line.decode("cp1252").encode("UTF-8")
+            except UnicodeDecodeError:
+                pass
+
+        name, value = line.split("=", 1)
+        name = name.strip()
+        value = value.strip()
+        if filter_func is None or (callable(filter_func) and filter_func(name, value)):
+            config[name] = value
+
+    return config
 
 
 class NamedTemporaryFile(object):
@@ -306,6 +388,14 @@ class NamedTemporaryFile(object):
 
 class Error(Exception):
     """Errors thrown explictly by this script; won't generate a stack trace."""
+
+
+class CommandError(Exception):
+    status = None
+
+    def __init__(self, msg="", status=1):
+        self.status = status
+        super(CommandError, self).__init__(msg)
 
 
 #
@@ -359,7 +449,7 @@ class Config(object):
         if should_access_file and not os.path.exists(self._filename):
             self.write()
 
-        self.arc = [self.arc_command]
+        self.arc = None
 
     def _set(self, section, option, value):
         if not self._config.has_section(section):
@@ -441,6 +531,8 @@ class Repository(object):
         """Determine the phab/conduit URL."""
 
         # In order of priority as per arc
+        # FIXME: This should also check {.hg|.git}/arc/config, which is where
+        # `arc set-config --local` writes to.  See bug 1497786.
         arcconfig_files = [
             os.path.join(self.dot_path, ".arcconfig"),
             os.path.join(self.path, ".arcconfig"),
@@ -524,6 +616,21 @@ class Repository(object):
         if errors:
             raise Error("\n\n".join(errors))
 
+    def check_arc(self):
+        """Check if arc can communicate with Phabricator."""
+        # Check if the cache file exists
+        path = os.path.join(self.dot_path, ".moz-phab_arc-configured")
+        if os.path.isfile(path):
+            return True
+
+        if arc_ping(self.path):
+            # Create the cache file
+            with open(path, "a") as f:
+                os.utime(path, None)
+            return True
+
+        return False
+
 
 #
 # Mercurial
@@ -549,7 +656,7 @@ class Mercurial(Repository):
         os.environ["HGENCODING"] = "UTF-8"
 
         # Check for `hg`, and mercurial version.
-        if not which(self._hg[0]):
+        if not which_path(self._hg[0]):
             raise Error("Failed to find 'hg' executable")
         m = re.search(
             r"\(version ([^)]+)\)", self.hg_out(["--version", "--quiet"], split=False)
@@ -565,20 +672,13 @@ class Mercurial(Repository):
 
         # Load hg config into hg_config.  We'll specify specific settings on
         # the command line when calling hg; all other user settings are ignored.
-        hg_config = {}
-        for line in self.hg_out(["config"], never_log=True):
-            # On Windows mercurial.ini is likely to be cp1252 encoded, not UTF-8.
-            if IS_WINDOWS:
-                try:
-                    line = line.decode("cp1252").encode("UTF-8")
-                except UnicodeDecodeError:
-                    pass
-
-            name, value = line.split("=", 1)
-            name = name.strip()
-            value = value.strip()
-            if not name.startswith("extensions.") or not value.startswith("!"):
-                hg_config[name] = value
+        # Do not parse shell alias extensions.
+        hg_config = parse_config(
+            self.hg_out(["config"], never_log=True),
+            lambda name, value: not (
+                name.startswith("extensions.") and value.startswith("!")
+            ),
+        )
 
         # Need to use the correct username.
         if "ui.username" not in hg_config:
@@ -618,16 +718,16 @@ class Mercurial(Repository):
         os.environ["HGRCPATH"] = ""
 
     @staticmethod
-    def _get_extension(extension, config):
+    def _get_extension(extension, hg_config):
         for prefix in ("extensions.%s", "extensions.hgext.%s"):
             field = prefix % extension
-            if field in config:
-                return config.get(field, "")
+            if field in hg_config:
+                return hg_config.get(field, "")
 
         return None
 
     def hg(self, command, **kwargs):
-        return check_call(self._hg + command, cwd=self.path, **kwargs)
+        check_call(self._hg + command, cwd=self.path, **kwargs)
 
     def hg_out(self, command, **kwargs):
         return check_output(self._hg + command, cwd=self.path, **kwargs)
@@ -648,7 +748,7 @@ class Mercurial(Repository):
         if self.strip_nodes:
             # With the obsstore deleted the amended nodes are no longer hidden, so
             # we need to strip them completely from the repo.
-            self.hg(["strip"] + self.strip_nodes)
+            self.hg(["strip", "--hidden"] + self.strip_nodes)
             self.strip_nodes = []
 
     def _status(self):
@@ -925,17 +1025,358 @@ class Mercurial(Repository):
 class Git(Repository):
     def __init__(self, path):
         dot_path = os.path.join(path, ".git")
-        if not os.path.isdir(dot_path):
+        if not os.path.exists(dot_path):
             raise ValueError("%s: not a git repository" % path)
+
         logger.debug("found git repo in %s" % path)
+
+        self._git = ["git.exe" if IS_WINDOWS else "git"]
+        if not which_path(self._git[0]):
+            raise Error("Failed to find 'git' executable")
+
+        # `self._env` is a dict representing environment used in all git commands.
+        self._env = os.environ.copy()
+
+        if os.path.isfile(dot_path):
+            # We're working from a worktree. Let's find the dot_path directory.
+            dot_path = self.git_out(
+                ["rev-parse", "--git-common-dir"], path=path, split=False
+            )
 
         super(Git, self).__init__(path, dot_path)
 
-        if not which("git"):
-            raise Error("Failed to find 'git' executable")
-        # TODO draw the rest of the owl
+        self.revset = None
 
-        raise NotImplementedError("git support is not yet implemented")
+        git_config = parse_config(self.git_out(["config", "--list"]))
+
+        # Need to use the correct username.
+        if "user.email" not in git_config:
+            raise Error("user.email is not configured in your gitconfig")
+
+        self._git.extend(["-c", "user.email=%s" % git_config["user.email"]])
+
+        if "user.name" in git_config:
+            self._git.extend(["-c", "user.name=%s" % git_config["user.name"]])
+
+        if "cinnabar.helper" in git_config:
+            self._git.extend(
+                ["-c", "cinnabar.helper=%s" % git_config["cinnabar.helper"]]
+            )
+
+        # Ignore the user's Git config
+        # To make Git not read the `~/.gitconfig` we need to temporarily change the
+        # `$HOME` variable.
+        self._env["HOME"] = ""
+        self._env["XDG_CONFIG_HOME"] = ""
+
+        # Store current branch (fails if HEAD in detached state)
+        try:
+            self.current_head = self._get_current_head()
+        except Exception:
+            raise Error(
+                "Git failed to read the branch name.\n"
+                "The repository is in a detached HEAD state.\n"
+                "You need to run the *git checkout <branch-name>* command."
+            )
+
+    def git(self, command, **kwargs):
+        """Call git from the repository path."""
+        check_call(self._git + command, cwd=self.path, env=self._env, **kwargs)
+
+    def git_out(self, command, path=None, **kwargs):
+        """Call git from the repository path and return the result."""
+        return check_output(
+            self._git + command, cwd=path or self.path, env=self._env, **kwargs
+        )
+
+    def cleanup(self):
+        self.git(["gc", "--auto", "--quiet"])
+        self.checkout(self.current_head)
+
+    def refresh_commit_stack(self, commits):
+        """Update revset and names of the commits."""
+        for commit in commits:
+            commit["name"] = commit["node"][:12]
+        self.revset = (commits[0]["node"], commits[-1]["node"])
+
+        super(Git, self).refresh_commit_stack(commits)
+
+    def _cherry(self, command, remotes):
+        """Run command and try all the remotes until success."""
+        if not remotes:
+            return self.git_out(command)
+
+        for remote in remotes:
+            logger.info('Determining the commit range using upstream "%s"' % remote)
+
+            try:
+                response = self.git_out(command + [remote])
+            except CommandError:
+                continue
+
+            return response
+
+    def _get_first_unpublished_node(self):
+        """Check which commits should be pushed and return the oldest one."""
+        cherry = ["cherry", "--abbrev=12"]
+        remotes = []
+        if self.args.upstream:
+            cherry += self.args.upstream
+        else:
+            remotes = self.git_out(["remote"])
+            if len(remotes) > 1:
+                logger.warning(
+                    "!! Found multiple upstreams (%s)." % (", ".join(remotes))
+                )
+
+        unpublished = self._cherry(cherry, remotes)
+
+        if unpublished is None:
+            raise Error(
+                "Unable to detect the start commit. Please provide its SHA-1 or\n"
+                "specify the upstream branch with `--upstream <branch>`."
+            )
+
+        if not unpublished:
+            return None
+
+        for line in unpublished:
+            # `git cherry` is producing the output in reverse order - oldest
+            # commit is the first one. That is the *opposite* of what we can find
+            # in the documentation.
+            if line.startswith("+"):
+                return line.split("+ ")[1]
+            else:
+                logger.warning(
+                    "!! Diff from commit %s found in upstream - omitting."
+                    % line.split("- ")[1]
+                )
+
+    def set_args(self, args):
+        """Store moz-phab command line args and set the revset."""
+        super(Git, self).set_args(args)
+
+        if self.args.start_rev == "(auto)":
+            start = self._get_first_unpublished_node()
+        else:
+            start = self.args.start_rev
+
+        if start is None:
+            return None
+
+        # We want full, inclusive range of commits.
+        # If the user provided a commit SHA1, its parent needs to be passed to the log.
+        if self._revparse(start).startswith(start):
+            # start is a hash - we need to use its parent
+            start = "%s^" % start
+
+        self.revset = (start, self.args.end_rev)
+
+    def _git_get_children(self, node):
+        """Get commits SHA1 with their children.
+
+        Args:
+            node: The SHA1 of a node to check for all children
+
+        Returns: A list of "aaaa bbbb cccc"" strings, where bbbb and cccc are
+            SHA1 of direct children of aaaa
+        """
+        return self.git_out(["rev-list", "--all", "--children", "--not", "%s^@" % node])
+
+    def _get_children(self, node, all_children):
+        """ Return direct children of the commit.
+
+        Args:
+            node: The SHA1 of a node to check for direct children
+            all_children: A list of SHA1 strings
+
+        Returns: A list of SHA1 representing direct children of a commit
+        """
+        # Find the line containing the node to extract its commit's children
+        for line in all_children:
+            if line.startswith(node):
+                children = line.split(" ")
+                children.remove(node)
+                return children
+
+        return []
+
+    def _get_commits_info(self, start, end):
+        """Log useful info about the commits within the desired range.
+
+        Returns a list of strings
+        An example of a list item:
+            4912923
+            b18312ffe929d3482f1d7b1e9716a1885c7a61b8
+            5f161c70fef9e59d1966bab693a0a68a9336af80
+            Update code references
+            Fixes:
+            $ moz-phab self-update
+            > Failed to download update: HTTP Error 404: Not Found
+        """
+        boundary = "--%s--\n" % uuid.uuid4().get_hex()
+        log = self.git_out(
+            [
+                "log",
+                "--reverse",
+                "--ancestry-path",
+                "--quiet",
+                "--format=%p%n%T%n%H%n%s%n%b{}".format(boundary),
+                "{}..{}".format(start, end),
+            ],
+            split=False,
+            strip=False,
+        )[: -len(boundary) - 1]
+        return log.split("%s\n" % boundary)
+
+    def commit_stack(self):
+        """Collect all the info about commits."""
+        if not self.revset:
+            # No commits found to submit
+            return None
+
+        commits = []
+        all_children = None
+        for log_line in self._get_commits_info(*self.revset):
+            if not log_line:
+                continue
+            parents, tree_hash, node, desc = log_line.split("\n", 3)
+            desc = desc.splitlines()
+            if not all_children:
+                all_children = self._git_get_children(node)
+
+            # Check if commit has multiple children, if so - raise an Error
+            if (
+                node[:12] != self.revset[1]
+                and len(self._get_children(node, all_children)) > 1
+            ):
+                raise Error(
+                    "Multiple children found for commit %s, unable to continue"
+                    % node[:12]
+                )
+
+            # Check if commit has multiple parents, if so - raise an Error
+            # We may push the merging commit if it's the first one
+            parents = parents.split(" ")
+            if node[:12] != self.revset[0] and len(parents) > 1:
+                raise Error(
+                    "Multiple parents found for commit %s, unable to continue"
+                    % node[:12]
+                )
+
+            commits.append(
+                {
+                    "name": node[:12],
+                    "node": node,
+                    "title": desc[0],
+                    "title-preview": desc[0],
+                    "body": "\n".join(desc[1:]).rstrip(),
+                    "bug-id": None,
+                    "reviewers": [],
+                    "rev-id": None,
+                    "parent": parents[0],
+                    "tree_hash": tree_hash,
+                }
+            )
+
+        return commits
+
+    def checkout(self, node):
+        self.git(["checkout", "--quiet", node])
+
+    def _get_current_head(self, allow_detached=False):
+        """Return current's HEAD symbolic link."""
+        symbolic = self.git_out(["symbolic-ref", "HEAD"], split=False)
+        return symbolic.split("refs/heads/")[1]
+
+    def _get_current_hash(self):
+        """Return the SHA1 of the current commit."""
+        return self._revparse("HEAD")
+
+    def _revparse(self, branch):
+        """Return the SHA1 of given branch."""
+        return self.git_out(["rev-parse", branch], split=False)
+
+    def _commit_tree(self, parent, tree_hash, message):
+        """Prepare and run `commit-tree` command.
+
+        Creates a new commit for the tree_hash.
+        Args:
+            parent: SHA1 of the parent commit
+            tree_hash: SHA1 of the tree_hash to use for the commit
+            message: commit message
+
+        Returns:
+            str: SHA1 of the new commit.
+        """
+        with NamedTemporaryFile() as temp_f:
+            temp_f.write(message)
+            temp_f.flush()
+            return self.git_out(
+                ["commit-tree", "-p", parent, "-F", temp_f.name, tree_hash], split=False
+            )
+
+    def amend_commit(self, commit, commits):
+        """Amend the commit with an updated message.
+
+        Changing commit's message changes also its SHA1.
+        All the children within the stack and branches are then updated
+        to keep the history.
+
+        Args:
+            commit: Information about the commit to be amended
+            commits: List of commits within the stack
+        """
+        updated_body = "%s\n\n%s" % (commit["title"], commit["body"])
+
+        current_body = self.git_out(
+            ["show", "-s", "--format=%s%n%b", commit["node"]], split=False
+        )
+        if current_body == updated_body:
+            logger.debug("not amending commit %s, unchanged" % commit["name"])
+            return
+
+        # Create a new commit with the updated body.
+        new_parent_sha = self._commit_tree(
+            commit["parent"], commit["tree_hash"], updated_body
+        )
+
+        # Update commit info
+        old_parent_sha = commit["node"]
+        commit["node"] = new_parent_sha
+        # Update parent for all the children of the `commit` within the stack
+        has_children = False
+        for c in commits:
+            if not has_children:
+                # Find the amended commit info in the list of all commits in the stack.
+                # Next commits are children of this one.
+                has_children = c == commit
+                continue
+
+            # Update parent information and create a new commit
+            c["parent"] = new_parent_sha
+            new_parent_sha = self._commit_tree(
+                new_parent_sha, c["tree_hash"], "%s\n%s" % (c["title"], c["body"])
+            )
+            old_parent_sha = c["node"]
+            c["node"] = new_parent_sha
+
+        # We've created a new linear history with detached commits.
+        # All branches based on the old SHA1 of the last commit need to be re-parented
+        # to its new SHA1.
+        branches = self.git_out(["branch", "--contains", old_parent_sha])
+        for branch in branches:
+            if branch.startswith("* ("):
+                # Omit `* (detached from {SHA1})`
+                continue
+            self.checkout(branch.lstrip("*").lstrip())
+            self._rebase(new_parent_sha, old_parent_sha)
+
+    def rebase_commit(self, source_commit, dest_commit):
+        self._rebase(dest_commit["node"], source_commit["node"])
+
+    def _rebase(self, newbase, upstream):
+        self.git(["rebase", "--quiet", "--onto", newbase, upstream])
 
 
 #
@@ -953,12 +1394,36 @@ def parse_bugs(title):
 
 
 def parse_reviewers(title):
-    reviewers = []
-    for match in re.finditer(REVIEWERS_RE, title):
+    """Extract reviewers information from first line of the commit message.
+
+    Returns a dictionary containing reviewers divided by the type:
+        "r?" reviewers under the "request" key
+        "r=" reviewers under the "granted" key
+    """
+    request_reviewers = []
+    for match in re.finditer(REQUEST_REVIEWERS_RE, title):
         if not match.group(3):
             continue
-        reviewers.extend(re.split(LIST_RE, match.group(3)))
-    return reviewers
+        request_reviewers.extend(re.split(LIST_RE, match.group(3)))
+    granted_reviewers = []
+    for match in re.finditer(GRANTED_REVIEWERS_RE, title):
+        if not match.group(3):
+            continue
+        granted_reviewers.extend(re.split(LIST_RE, match.group(3)))
+    return dict(request=request_reviewers, granted=granted_reviewers)
+
+
+def strip_differential_revision(body):
+    return ARC_DIFF_REV_RE.sub("", body).rstrip()
+
+
+def amend_revision_url(body, new_url):
+    """Append or replace the Differential Revision URL in a commit body."""
+    body = strip_differential_revision(body)
+    if body:
+        body += "\n"
+    body += "\nDifferential Revision: %s" % new_url
+    return body
 
 
 def has_arc_rejections(body):
@@ -970,7 +1435,6 @@ def augment_commits_from_body(commits):
 
     Adds: rev-id, bug-id, reviewers
     """
-
     for commit in commits:
         commit["rev-id"] = parse_arc_diff_rev(commit["body"])
 
@@ -993,7 +1457,6 @@ def augment_commits_from_body(commits):
 
 def build_commit_title(commit):
     """Build/update title from commit metadata"""
-
     # Reviewers.
     title = replace_reviewers(commit["title"], commit["reviewers"])
 
@@ -1018,12 +1481,14 @@ def update_commit_title_previews(commits):
 
 def replace_reviewers(commit_description, reviewers):
     """From vct's commitparser"""
-    # TODO unit test
+    reviewers_lst = []
+    if reviewers["request"]:
+        reviewers_lst.append("r?" + ",".join(reviewers["request"]))
 
-    if not reviewers:
-        reviewers_str = ""
-    else:
-        reviewers_str = "r?" + ",".join(reviewers)
+    if reviewers["granted"]:
+        reviewers_lst.append("r=" + ",".join(reviewers["granted"]))
+
+    reviewers_str = " ".join(reviewers_lst)
 
     if commit_description == "":
         return reviewers_str
@@ -1050,7 +1515,7 @@ def replace_reviewers(commit_description, reviewers):
             else:
                 return matchobj.group(0)
 
-        commit_title = re.sub(REVIEWERS_RE, replace_first_reviewer, commit_title)
+        commit_title = re.sub(ALL_REVIEWERS_RE, replace_first_reviewer, commit_title)
 
         # remove marker values as well as leading separators.  this allows us
         # to remove runs of multiple reviewers and retain the trailing
@@ -1079,15 +1544,49 @@ def show_commit_stack(repo, commits, show_rev_urls=False, show_warnings=False):
                 logger.warning("!! Missing reviewers")
 
         if show_rev_urls and commit["rev-id"]:
-            logger.warning("-> %sD%s" % (repo.phab_url, commit["rev-id"]))
+            logger.warning("-> %s/D%s" % (repo.phab_url.rstrip("/"), commit["rev-id"]))
 
 
-def arc_out(args, cwd):
-    """arc wrapper that logs output"""
-    arc_output = check_output(config.arc + args, cwd=cwd, split=False)
-    if logger.level != logging.DEBUG:
+def arc_out(args, cwd, stdin=None, log_output_to_console=True):
+    """arc wrapper that logs output to the console.
+
+    Args:
+        args: A list of arguments for the arc command.
+        cwd: The directory to run the arc command in.
+        stdin: Optionally overrides the standard input pipe to use for the arc
+            subprocess call.
+        log_output_to_console: Defaults to True.  If set to False, don't log the arc
+            standard output to the console (stderr prints to console as normal).
+
+    Returns:
+        The list of lines arc printed to the console.
+    """
+    arc_output = check_output(config.arc + args, cwd=cwd, split=False, stdin=stdin)
+    if logger.level != logging.DEBUG and log_output_to_console:
         logger.info(arc_output)
     return arc_output
+
+
+def arc_ping(cwd):
+    """Sends a ping to the Phabricator server using `conduit.ping` API.
+
+    Returns: `True` if no error, otherwise - `False`
+    """
+    logger.debug('$ echo "{}" | %s call-conduit conduit.ping' % " ".join(config.arc))
+    p = Popen(
+        config.arc + ["call-conduit", "conduit.ping"],
+        cwd=cwd,
+        stdin=PIPE,
+        stdout=PIPE,
+        stderr=PIPE,
+    )
+    stdout, stderr = p.communicate("{}")
+    logger.debug(stdout)
+    if p.returncode == 0:
+        return True
+
+    logger.error(stderr)
+    return False
 
 
 def arc_message(template_vars):
@@ -1110,31 +1609,210 @@ def arc_message(template_vars):
 #
 # "submit" Command
 #
+def make_blocking(reviewers):
+    return ["%s!" % r.rstrip("!") for r in reviewers]
+
+
+def remove_duplicates(reviewers):
+    """Remove all duplicate items from the list.
+
+    Args:
+        reviewers: list of strings representing IRC nicks of reviewers.
+
+    Returns: list of unique reviewers.
+
+    Duplicates with excalamation mark are prefered.
+    """
+    unique = []
+    nicks = []
+    for reviewer in reviewers:
+        nick = reviewer.lower().strip("!")
+        if reviewer.endswith("!") and nick in nicks:
+            nicks.remove(nick)
+            unique = [r for r in unique if r.lower().strip("!") != nick]
+
+        if nick not in nicks:
+            nicks.append(nick)
+            unique.append(reviewer)
+
+    return unique
 
 
 def update_commits_from_args(commits, args):
-    # Build list of reviewers from args.
-    reviewers = list(set(args.reviewer)) if args.reviewer else []
-    blockers = list(set(args.blocker)) if args.blocker else []
-    reviewers += ["%s!" % r.rstrip("!") for r in blockers]
+    """Modify commit description based on args and configuration.
 
-    # Command args always overwrite commit desc.
+    Args:
+        commits: list of dicts representing the commits in commit stack
+        args: argparse.ArgumentParser object. In this function we're using
+            following attributes:
+            * reviewer - list of strings representing reviewers
+            * blocker - list of string representing blocking reviewers
+            * bug - an integer representing bug id in Bugzilla
+
+    Command args always overwrite commit desc.
+    Overwriting reviewers rules
+    (The "-r" are loaded into args.reviewer and "-R" into args.blocker):
+        a) Recognize `r=` and `r?` from commit message title.
+        b) Modify reviewers only if `-r` or `-R` is used in call arguments.
+        c) Add new reviewers using `r=`
+        d) Do not modify the way reviewer is already provided in the title (`r?` or `r=`).
+        e) Delete reviewer if `-r` or `-R` is used and the reviewer is not mentioned.
+
+    If no reviewers are provided by args and an `always_blocking` flag is set
+    change all reviewers in title to blocking.
+    """
+    # Build list of reviewers from args.
+    # WARN: Order might be changed here `list(set(["one", "two"])) == ['two', 'one']`
+    reviewers = list(set(args.reviewer)) if args.reviewer else []
+    blockers = [r.rstrip("!") for r in args.blocker] if args.blocker else []
+    # User might use "-r <nick>!" to provide a blocking reviewer.
+    # Add all such blocking reviewers to blockers list.
+    blockers += [r.rstrip("!") for r in reviewers if r.endswith("!")]
+    blockers = list(set(blockers))
+    # Remove blocking reviewers from reviewers list
+    reviewers_no_flag = [r.strip("!") for r in reviewers]
+    reviewers = [r for r in reviewers_no_flag if r.lower() not in blockers]
+    # Add all blockers to reviewers list. Reviewers list will contain a list
+    # of all reviewers where blocking ones are marked with the "!" suffix.
+    reviewers += make_blocking(blockers)
+    reviewers = remove_duplicates(reviewers)
+    lowercase_reviewers = [r.lower() for r in reviewers]
+    lowercase_blockers = [r.lower() for r in blockers]
+
     for commit in commits:
         if reviewers:
-            commit["reviewers"] = reviewers
+            # Only the reviewers mentioned in command line args will remain.
+            # New reviewers will be marked as "granted" (r=).
+            granted = reviewers[:]
+            requested = []
+
+            # commit["reviewers"]["request|"] is a list containing reviewers
+            # provided in commit's title with an r? mark.
+            for reviewer in commit["reviewers"]["request"]:
+                r = reviewer.strip("!")
+                # check which request reviewers are provided also via -r
+                if r.lower() in lowercase_reviewers:
+                    requested.append(r)
+                    granted.remove(r)
+                # check which request reviewers are provided also via -R
+                elif r.lower() in lowercase_blockers:
+                    requested.append("%s!" % r)
+                    granted.remove("%s!" % r)
+        else:
+            granted = commit["reviewers"].get("granted", [])
+            requested = commit["reviewers"].get("request", [])
+
+        commit["reviewers"] = dict(granted=granted, request=requested)
         if args.bug:
+            # Bug ID command arg used.
             commit["bug-id"] = args.bug
 
     # Otherwise honour config setting to always use blockers
     if not reviewers and config.always_blocking:
         for commit in commits:
-            commit["reviewers"] = ["%s!" % r.rstrip("!") for r in commit["reviewers"]]
+            commit["reviewers"] = dict(
+                request=make_blocking(commit["reviewers"]["request"]),
+                granted=make_blocking(commit["reviewers"]["granted"]),
+            )
 
     update_commit_title_previews(commits)
 
 
+def build_api_call_to_update_commit_title_and_summary(commit):
+    """Build a Conduit API transaction to update a commit title and summary.
+
+    See https://phabricator.services.mozilla.com/api/differential.revision.edit for
+    the returned JSON object format.
+
+    Args:
+        commit: A VCS commit data dict to use for the call args.
+
+    Returns:
+        A JSON dict that can be passed to a Conduit differential.revision.edit API call.
+    """
+    # The Phabricator API will refuse the new summary value if we include the
+    # "Differential Revision:" keyword in the summary body.
+    transactions = [
+        dict(type="title", value=commit["title"]),
+        dict(type="summary", value=strip_differential_revision(commit["body"])),
+    ]
+    return {"transactions": transactions, "objectIdentifier": commit["rev-id"]}
+
+
+def parse_api_error(api_response):
+    """Parse the string output from 'arc call-conduit' and return any errors found.
+
+    Args:
+        api_response: stdout string captured from 'arc call-conduit'.  It should
+            contain only valid JSON.
+
+    Returns:
+        A string error description if an error occurred or None if no error occurred.
+    """
+    # Example error response from running
+    # $ echo '{}' | arc call-conduit differential.revision.edit | jq .
+    #
+    # {
+    #   "error": "ERR-CONDUIT-CORE",
+    #   "errorMessage": "ERR-CONDUIT-CORE: Parameter \"transactions\" is not a list "\
+    #       "of transactions.",
+    #   "response": null
+    # }
+    response = json.loads(api_response)
+    if response["error"] and response["errorMessage"]:
+        return response["errorMessage"]
+
+
+def update_phabricator_commit_summary(commit, repo):
+    """Send a new commit summary and description to Phabricator.
+
+    Args:
+        commit: A VCS commit data dict to use for the call args.
+        repo: The Repository that the commit lives in.
+
+    """
+    # From https://phabricator.services.mozilla.com/api/differential.revision.edit
+    #
+    # Example call format we are aiming for:
+    #
+    # $ echo '{
+    #   "transactions": [
+    #     {
+    #       "type": "title",
+    #       "value": "Remove unnecessary branch statement"
+    #     }
+    #     {
+    #       "type": "summary",
+    #       "value": "Blah"
+    #     }
+    #   ],
+    #   "objectIdentifier": "D8095"
+    # }' | arc call-conduit --conduit-uri https://phabricator.services.mozilla.com/ \
+    #       --conduit-token <conduit-token> differential.revision.edit
+    logger.debug("Updating revision title and summary in Phabricator")
+    api_call_args = build_api_call_to_update_commit_title_and_summary(commit)
+    arc_args = ["call-conduit", "differential.revision.edit"]
+
+    # 'arc call-conduit' only accepts its args from STDIN.
+    with NamedTemporaryFile() as temp_f:
+        json.dump(api_call_args, temp_f)
+        temp_f.flush()
+        temp_f.file.seek(0)
+        logger.debug("Arc stdin: %s", api_call_args)
+        output = arc_out(
+            arc_args, cwd=repo.path, stdin=temp_f, log_output_to_console=False
+        )
+
+    maybe_error = parse_api_error(output)
+    if maybe_error:
+        logger.warn(
+            "Error attempting to update revision summary and title in Phabricator"
+        )
+        logger.warn("Error was: %s", maybe_error)
+
+
 def submit(repo, args):
-    if DEBUG or (hasattr(args, "trace") and args.trace):
+    if DEBUG:
         config.arc.append("--trace")
 
     # Find and preview commits to submits.
@@ -1170,6 +1848,10 @@ def submit(repo, args):
                 for filename in untracked:
                     logger.info("  %s" % filename)
 
+    # Check if arc is configured
+    if not repo.check_arc():
+        raise Error("Failed to run %s." % config.arc_command)
+
     # Confirmation prompt.
     if args.yes:
         pass
@@ -1191,8 +1873,11 @@ def submit(repo, args):
     # Process.
     previous_commit = None
     for commit in commits:
+        # Only revisions being updated have an ID.  Newly created ones don't.
+        is_update = bool(commit["rev-id"])
+
         # Let the user know something's happening.
-        if commit["rev-id"]:
+        if is_update:
             logger.info("\nUpdating revision D%s:" % commit["rev-id"])
         else:
             logger.info("\nCreating new revision:")
@@ -1203,7 +1888,9 @@ def submit(repo, args):
         template_vars = dict(
             title=commit["title-preview"],
             body=commit["body"],
-            reviewers=", ".join(commit["reviewers"]),
+            reviewers=", ".join(
+                commit["reviewers"]["granted"] + commit["reviewers"]["request"]
+            ),
             bug_id=commit["bug-id"],
         )
         if previous_commit:
@@ -1221,27 +1908,39 @@ def submit(repo, args):
                 + ["--allow-untracked", "--no-amend", "--no-ansi"]
                 + ["--message-file", temp_f.name]
             )
-            if commit["rev-id"]:
+            if args.nolint:
+                arc_args.append("--nolint")
+            if is_update:
                 arc_args.extend(
                     ["--message", "Revision updated."] + ["--update", commit["rev-id"]]
                 )
             else:
                 arc_args.append("--create")
 
-            arc_output = arc_out(arc_args, cwd=repo.path)
+            revision_url = None
+            for line in check_call_by_line(
+                config.arc + arc_args, cwd=repo.path, never_log=True
+            ):
+                print(line)
 
-        # Extract Revision URL.
-        m = ARC_OUTPUT_REV_URL_RE.search(arc_output)
-        if not m:
+                # Extract Revision URL.
+                m = ARC_OUTPUT_REV_URL_RE.search(line)
+                if m:
+                    revision_url = m.group(1)
+
+        if not revision_url:
             raise Error("Failed to find 'Revision URL' in arc output")
-        revision_url = m.group(1)
+
+        if is_update:
+            try:
+                update_phabricator_commit_summary(commit, repo)
+            except Exception:
+                logger.warning(
+                    "Warning: failed to update commit summary in Phabricator"
+                )
 
         # Append/replace div rev url to/in commit description.
-        body = commit["body"]
-        body = ARC_DIFF_REV_RE.sub("", body).rstrip()
-        if body:
-            body += "\n"
-        body += "\nDifferential Revision: %s" % revision_url
+        body = amend_revision_url(commit["body"], revision_url)
 
         # Amend the commit if required.
         if commit["title-preview"] != commit["title"] or body != commit["body"]:
@@ -1370,7 +2069,11 @@ def self_update(args):
 
 class ColourFormatter(logging.Formatter):
     def __init__(self):
-        super(ColourFormatter, self).__init__("%(message)s")
+        if DEBUG:
+            fmt = "%(levelname)-8s %(asctime)-13s %(message)s"
+        else:
+            fmt = "%(message)s"
+        super(ColourFormatter, self).__init__(fmt)
         self.log_colours = {"WARNING": 34, "ERROR": 31}  # blue, red
 
     def format(self, record):
@@ -1387,7 +2090,7 @@ def init_logging():
     logger.setLevel(logging.DEBUG if DEBUG else logging.INFO)
 
 
-def parse_args():
+def parse_args(argv):
     parser = argparse.ArgumentParser()
     commands = parser.add_subparsers(dest="command", metavar="COMMAND")
     commands.required = True
@@ -1430,10 +2133,23 @@ def parse_args():
     )
     submit_parser.add_argument(
         "--blocker",
-        "--blocker",
+        "--blockers",
         "-R",
         action="append",
         help="Set blocking review(s) for all commits (default: from commit)",
+    )
+    submit_parser.add_argument(
+        "--nolint",
+        "--no-lint",
+        action="store_true",
+        help="Do not run lint (default: lint changed files if configured)",
+    )
+    submit_parser.add_argument(
+        "--upstream",
+        "--upstream",
+        "-u",
+        action="append",
+        help='Set upstream branch to detect the starting commit. (default: "")',
     )
     submit_parser.add_argument(
         "start_rev",
@@ -1461,11 +2177,11 @@ def parse_args():
     )
     update_parser.set_defaults(func=self_update, needs_repo=False)
 
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main():
-    global config, HAS_ANSI
+def main(argv):
+    global config, HAS_ANSI, DEBUG
     try:
         init_logging()
         config = Config()
@@ -1473,12 +2189,15 @@ def main():
         if config.no_ansi:
             HAS_ANSI = False
 
-        if not os.path.exists(config.arc_command) and not which(config.arc_command):
+        arc_path = which_path(config.arc_command)
+        if not arc_path:
             raise Error(
                 "Failed to find '%s' on the system path.\n"
                 "Please follow the Phabricator setup guide:\n"
                 "%s" % (config.arc_command, GUIDE_URL)
             )
+
+        config.arc = [arc_path]
 
         # Ensure ssl certificates are validated (see PEP 476).
         if hasattr(ssl, "_https_verify_certificates"):
@@ -1492,7 +2211,10 @@ def main():
                 "or later."
             )
 
-        args = parse_args()
+        args = parse_args(argv)
+
+        if hasattr(args, "trace") and args.trace:
+            DEBUG = True
 
         if args.command != "self-update":
             check_for_updates()
@@ -1518,4 +2240,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
