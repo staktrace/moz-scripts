@@ -6,7 +6,15 @@ use std::iter::FromIterator;
 use std::vec::Vec;
 
 fn flip(token: &str) -> String {
-    if token.find("not ") == Some(0) {
+    if token == "(bits == 32)" {
+        "(bits == 64)".to_string()
+    } else if token == "(bits == 64)" {
+        "(bits == 32)".to_string()
+    } else if token == "(processor == \"x86\")" {
+        "(processor == \"x86_64\")".to_string()
+    } else if token == "(processor == \"x86_64\")" {
+        "(processor == \"x86\")".to_string()
+    } else if token.find("not ") == Some(0) {
         token[4..].to_string()
     } else {
         "not ".to_string() + token
