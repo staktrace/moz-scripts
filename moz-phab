@@ -14,9 +14,9 @@ Goals:
 - should work on python 2.7 and python 3.5+
 """
 
-import ConfigParser
 import argparse
 import calendar
+import ConfigParser
 import datetime
 import errno
 import io
@@ -34,7 +34,6 @@ import traceback
 import urllib2
 import uuid
 from distutils.version import LooseVersion
-from subprocess import Popen, PIPE
 
 # Known Issues
 # - reordering, folding, etc commits doesn't result in the stack being updated
@@ -322,11 +321,12 @@ def parse_config(config_list, filter_func=None):
     Args:
         config_list: A list of "name=value" strings
         filter_func: A function taking the parsing config name and value for each line.
-            If the function returns True the config value will be included in the final dict
+            If the function returns True the config value will be included in the final
+            dict.
 
     Returns: A dict containing parsed data.
     """
-    config = dict()
+    result = dict()
     for line in config_list:
         # On Windows config file is likely to be cp1252 encoded, not UTF-8.
         if IS_WINDOWS:
@@ -339,9 +339,14 @@ def parse_config(config_list, filter_func=None):
         name = name.strip()
         value = value.strip()
         if filter_func is None or (callable(filter_func) and filter_func(name, value)):
-            config[name] = value
+            result[name] = value
 
-    return config
+    return result
+
+
+def normalise_reviewer(reviewer):
+    """This provide a canonical form of the reviewer for comparison."""
+    return reviewer.lstrip("#").rstrip("!").lower()
 
 
 class NamedTemporaryFile(object):
@@ -396,6 +401,10 @@ class CommandError(Exception):
     def __init__(self, msg="", status=1):
         self.status = status
         super(CommandError, self).__init__(msg)
+
+
+class ConduitAPIError(Error):
+    """Raised when the Phabricator Conduit API returns an error response."""
 
 
 #
@@ -560,6 +569,9 @@ class Repository(object):
         May be called multiple times.
         If an exception is raised this is NOT called (to avoid dataloss)."""
 
+    def finalize(self, commits):
+        """Update the history after node changed."""
+
     def set_args(self, args):
         self.args = args
 
@@ -597,6 +609,30 @@ class Repository(object):
         """Validate the list of commits (from commit_stack) are ok to submit"""
         errors = []
 
+        # Extract a set of reviewers and verify first; they will be displayed
+        # with other commit errors.
+        all_reviewers = {}
+        reviewer_commit_map = {}
+        commit_invalid_reviewers = {}
+
+        # Flatten and deduplicate reviewer list, keeping track of the associated commit
+        for commit in commits:
+            commit_invalid_reviewers[commit["node"]] = []
+
+            for group in commit["reviewers"].keys():
+                for reviewer in commit["reviewers"][group]:
+                    all_reviewers.setdefault(group, set())
+                    all_reviewers[group].add(reviewer)
+
+                    reviewer = normalise_reviewer(reviewer)
+                    reviewer_commit_map.setdefault(reviewer, [])
+                    reviewer_commit_map[reviewer].append(commit["node"])
+
+        # Verify all reviewers in a single call
+        for invalid_reviewer in check_for_invalid_reviewers(all_reviewers, self.path):
+            for node in reviewer_commit_map[normalise_reviewer(invalid_reviewer)]:
+                commit_invalid_reviewers[node].append(invalid_reviewer)
+
         for commit in commits:
             commit_errors = []
             # TODO allow NOBUG in commit message (not in arg)
@@ -606,6 +642,9 @@ class Repository(object):
 
             if has_arc_rejections(commit["body"]):
                 commit_errors.append("contains arc fields")
+
+            for reviewer in commit_invalid_reviewers[commit["node"]]:
+                commit_errors.append("%s is not a valid reviewer's name" % reviewer)
 
             if commit_errors:
                 errors.append(
@@ -625,7 +664,7 @@ class Repository(object):
 
         if arc_ping(self.path):
             # Create the cache file
-            with open(path, "a") as f:
+            with open(path, "a"):
                 os.utime(path, None)
             return True
 
@@ -774,24 +813,30 @@ class Mercurial(Repository):
         commit["node"] = node
         commit["name"] = "%s:%s" % (rev, node[:12])
 
+    def _get_successor(self, node):
+        """Get the successor of the commit represented by its node.
+
+        Returns: a tuple containing rev and node"""
+        hg_log = self.hg_out(
+            ["log"]
+            + ["-T", "{rev} {node}\n"]
+            + ["--hidden"]
+            + ["-r", "successors(%s) and not obsolete()" % node]
+        )
+        if not hg_log:
+            return None, None
+
+        # Not sure the best way to handle multiple successors, so just bail out.
+        if len(hg_log) > 1:
+            raise Error("Multiple successors found for %s, unable to continue" % node)
+
+        return hg_log[0].split(" ", 1)
+
     def refresh_commit_stack(self, commits):
         """Update all commits to point to their superseded commit."""
         for commit in commits:
-            hg_log = self.hg_out(
-                ["log"]
-                + ["-T", "{rev} {node}\n"]
-                + ["--hidden"]
-                + ["-r", "successors(%s) and not obsolete()" % commit["node"]]
-            )
-            if hg_log:
-                # Not sure the best way to handle multiple successors, so just bail out.
-                if len(hg_log) > 1:
-                    raise Error(
-                        "Multiple successors found for %s, unable to continue"
-                        % commit["node"]
-                    )
-
-                (rev, node) = hg_log[0].split(" ", 1)
+            (rev, node) = self._get_successor(commit["node"])
+            if rev and node:
                 self._refresh_commit(commit, node, rev)
 
         self.revset = "%s::%s" % (commits[0]["node"], commits[-1]["node"])
@@ -862,6 +907,22 @@ class Mercurial(Repository):
             self.checkout(node)
             self.hg(["commit", "--amend", "--logfile", temp_f.name])
 
+    def finalize(self, commits):
+        """Rebase stack children commits if needed."""
+        # Currently we do all rebases in `amend_commit` if the evolve extension
+        # is not installed.
+        if not self.use_evolve:
+            return
+
+        parent = None
+        for commit in commits:
+            if parent:
+                self.rebase_commit(commit, parent)
+                (rev, node) = self._get_successor(commit["node"])
+                if rev and node:
+                    self._refresh_commit(commit, node, rev)
+            parent = commit
+
     def amend_commit(self, commit, commits):
         updated_body = "%s\n%s" % (commit["title"], commit["body"])
         current_body = self.hg_out(
@@ -895,10 +956,7 @@ class Mercurial(Repository):
             # Amend and refresh the stack to get the new commit node.
             self._amend_commit_body(commit["node"], updated_body)
             self.refresh_commit_stack(commits)
-
-            # Rebase children atop new commit node.
-            if first_child:
-                self.rebase_commit(first_child, commit)
+            # Rebase will happen in `finalize`
 
         elif not first_child and not post_stack_children:
             # Without evolve things are much more exciting.
@@ -1071,7 +1129,7 @@ class Git(Repository):
 
         # Store current branch (fails if HEAD in detached state)
         try:
-            self.current_head = self._get_current_head()
+            self.branch = self._get_current_head()
         except Exception:
             raise Error(
                 "Git failed to read the branch name.\n"
@@ -1091,7 +1149,35 @@ class Git(Repository):
 
     def cleanup(self):
         self.git(["gc", "--auto", "--quiet"])
-        self.checkout(self.current_head)
+        self.checkout(self.branch)
+
+    def _find_branches_to_rebase(self, commits):
+        """Create a list of branches to rebase."""
+        branches_to_rebase = dict()
+        for commit in commits:
+            if commit["node"] == commit["orig-node"]:
+                continue
+            branches = self.git_out(["branch", "--contains", commit["orig-node"]])
+            for branch in branches:
+                if branch.startswith("* ("):
+                    # Omit `* (detached from {SHA1})`
+                    continue
+
+                branch = branch.lstrip("* ")
+                # Rebase the branch to the last commit from the stack .
+                branches_to_rebase[branch] = [commit["node"], commit["orig-node"]]
+
+        return branches_to_rebase
+
+    def finalize(self, commits):
+        """Rebase all branches based on changed commits from the stack."""
+        branches_to_rebase = self._find_branches_to_rebase(commits)
+
+        for branch, nodes in branches_to_rebase.iteritems():
+            self.checkout(branch)
+            self._rebase(*nodes)
+
+        self.checkout(self.branch)
 
     def refresh_commit_stack(self, commits):
         """Update revset and names of the commits."""
@@ -1183,17 +1269,18 @@ class Git(Repository):
         """
         return self.git_out(["rev-list", "--all", "--children", "--not", "%s^@" % node])
 
-    def _get_children(self, node, all_children):
+    @staticmethod
+    def _get_direct_children(node, rev_list):
         """ Return direct children of the commit.
 
         Args:
             node: The SHA1 of a node to check for direct children
-            all_children: A list of SHA1 strings
+            rev_list: A list of SHA1 strings - result of the _git_get_children method
 
         Returns: A list of SHA1 representing direct children of a commit
         """
         # Find the line containing the node to extract its commit's children
-        for line in all_children:
+        for line in rev_list:
             if line.startswith(node):
                 children = line.split(" ")
                 children.remove(node)
@@ -1229,6 +1316,28 @@ class Git(Repository):
         )[: -len(boundary) - 1]
         return log.split("%s\n" % boundary)
 
+    def _is_child(self, parent, node, rev_list):
+        """Check if `node` is a direct or indirect child of the `parent`.
+
+        Args:
+            parent: The parent node whose children will be searched
+            node: The string we check if it's in parent-child relation to the `parent`
+            rev_list: A response from the git _git_get_children method - a list of
+                "aaaa bbbb cccc"" strings, where "bbbb" and cccc" are SHA1 of direct
+                children of "aaaa"
+
+        Returns: a Boolean True if the `node` represents a child of the `parent`.
+        """
+        direct_children = self._get_direct_children(parent, rev_list)
+        if node in direct_children:
+            return True
+
+        for child in direct_children:
+            if self._is_child(child, node, rev_list):
+                return True
+
+        return False
+
     def commit_stack(self):
         """Collect all the info about commits."""
         if not self.revset:
@@ -1236,29 +1345,28 @@ class Git(Repository):
             return None
 
         commits = []
-        all_children = None
+        rev_list = None
         for log_line in self._get_commits_info(*self.revset):
             if not log_line:
                 continue
+
             parents, tree_hash, node, desc = log_line.split("\n", 3)
             desc = desc.splitlines()
-            if not all_children:
-                all_children = self._git_get_children(node)
 
-            # Check if commit has multiple children, if so - raise an Error
-            if (
-                node[:12] != self.revset[1]
-                and len(self._get_children(node, all_children)) > 1
-            ):
+            # Check if the commit is a child of the first one
+            if not rev_list:
+                rev_list = self._git_get_children(node)
+                first_node = node
+            elif not self._is_child(first_node, node, rev_list):
                 raise Error(
-                    "Multiple children found for commit %s, unable to continue"
-                    % node[:12]
+                    "Commit %s is not a child of %s, unable to continue"
+                    % (node[:12], first_node[:12])
                 )
 
             # Check if commit has multiple parents, if so - raise an Error
             # We may push the merging commit if it's the first one
             parents = parents.split(" ")
-            if node[:12] != self.revset[0] and len(parents) > 1:
+            if node[:12] != first_node[:12] and len(parents) > 1:
                 raise Error(
                     "Multiple parents found for commit %s, unable to continue"
                     % node[:12]
@@ -1268,6 +1376,7 @@ class Git(Repository):
                 {
                     "name": node[:12],
                     "node": node,
+                    "orig-node": node,
                     "title": desc[0],
                     "title-preview": desc[0],
                     "body": "\n".join(desc[1:]).rstrip(),
@@ -1275,7 +1384,7 @@ class Git(Repository):
                     "reviewers": [],
                     "rev-id": None,
                     "parent": parents[0],
-                    "tree_hash": tree_hash,
+                    "tree-hash": tree_hash,
                 }
             )
 
@@ -1284,7 +1393,7 @@ class Git(Repository):
     def checkout(self, node):
         self.git(["checkout", "--quiet", node])
 
-    def _get_current_head(self, allow_detached=False):
+    def _get_current_head(self):
         """Return current's HEAD symbolic link."""
         symbolic = self.git_out(["symbolic-ref", "HEAD"], split=False)
         return symbolic.split("refs/heads/")[1]
@@ -1338,7 +1447,7 @@ class Git(Repository):
 
         # Create a new commit with the updated body.
         new_parent_sha = self._commit_tree(
-            commit["parent"], commit["tree_hash"], updated_body
+            commit["parent"], commit["tree-hash"], updated_body
         )
 
         # Update commit info
@@ -1356,21 +1465,10 @@ class Git(Repository):
             # Update parent information and create a new commit
             c["parent"] = new_parent_sha
             new_parent_sha = self._commit_tree(
-                new_parent_sha, c["tree_hash"], "%s\n%s" % (c["title"], c["body"])
+                new_parent_sha, c["tree-hash"], "%s\n%s" % (c["title"], c["body"])
             )
             old_parent_sha = c["node"]
             c["node"] = new_parent_sha
-
-        # We've created a new linear history with detached commits.
-        # All branches based on the old SHA1 of the last commit need to be re-parented
-        # to its new SHA1.
-        branches = self.git_out(["branch", "--contains", old_parent_sha])
-        for branch in branches:
-            if branch.startswith("* ("):
-                # Omit `* (detached from {SHA1})`
-                continue
-            self.checkout(branch.lstrip("*").lstrip())
-            self._rebase(new_parent_sha, old_parent_sha)
 
     def rebase_commit(self, source_commit, dest_commit):
         self._rebase(dest_commit["node"], source_commit["node"])
@@ -1547,6 +1645,32 @@ def show_commit_stack(repo, commits, show_rev_urls=False, show_warnings=False):
             logger.warning("-> %s/D%s" % (repo.phab_url.rstrip("/"), commit["rev-id"]))
 
 
+def check_for_invalid_reviewers(reviewers, cwd):
+    """Return a list of invalid reviewer names.
+
+    Args:
+        reviewers: A commit reviewers dict of granted and requested reviewers.
+        cwd: The directory to run the arc command in.
+    """
+
+    # Combine the lists of requested reviewers and granted reviewers.
+    all_reviewers = []
+    for sublist in reviewers.values():
+        all_reviewers.extend([r.rstrip("!") for r in sublist])
+
+    # See https://phabricator.services.mozilla.com/api/user.search
+    api_call_args = {"queryKey": "active", "constraints": {"usernames": all_reviewers}}
+    result = arc_call_conduit("user.search", api_call_args, cwd)
+    found_names = [data["fields"]["username"] for data in result["data"]]
+
+    return list(set(all_reviewers) - set(found_names))
+
+
+#
+# Arc helpers
+#
+
+
 def arc_out(args, cwd, stdin=None, log_output_to_console=True):
     """arc wrapper that logs output to the console.
 
@@ -1567,26 +1691,78 @@ def arc_out(args, cwd, stdin=None, log_output_to_console=True):
     return arc_output
 
 
+def arc_call_conduit(api_method, api_call_args, cwd):
+    """Run 'arc call-conduit' and return the JSON API call result.
+
+    Args:
+        api_method: The API method name to call, like 'differential.revision.edit'.
+        api_call_args: JSON dict of call args to send.
+        cwd: The directory to run the arc command in.
+
+    Raises:
+        ConduitAPIError if the API threw an error back at us.
+    """
+    arc_args = ["call-conduit", api_method]
+    # 'arc call-conduit' only accepts its args from STDIN.
+    with NamedTemporaryFile() as temp_f:
+        json.dump(api_call_args, temp_f)
+        temp_f.flush()
+        temp_f.file.seek(0)
+        logger.debug("Arc stdin: %s", api_call_args)
+        output = arc_out(arc_args, cwd=cwd, stdin=temp_f, log_output_to_console=False)
+
+    # We expect arc output to be a JSON. However, in DEBUG mode, a `--trace` is used and
+    # the reponse becomes a multiline string with some messages in plain text.
+    output = "\n".join([line for line in output.splitlines() if line.startswith("{")])
+    maybe_error = parse_api_error(output)
+    if maybe_error:
+        raise ConduitAPIError(maybe_error)
+
+    return json.loads(output)["response"]
+
+
+def parse_api_error(api_response):
+    """Parse the string output from 'arc call-conduit' and return any errors found.
+
+    Args:
+        api_response: stdout string captured from 'arc call-conduit'.  It should
+            contain only valid JSON.
+
+    Returns:
+        A string error description if an error occurred or None if no error occurred.
+    """
+    # Example error response from running
+    # $ echo '{}' | arc call-conduit differential.revision.edit | jq .
+    #
+    # {
+    #   "error": "ERR-CONDUIT-CORE",
+    #   "errorMessage": "ERR-CONDUIT-CORE: Parameter \"transactions\" is not a list "\
+    #       "of transactions.",
+    #   "response": null
+    # }
+    response = json.loads(api_response)
+    if response["error"] and response["errorMessage"]:
+        return response["errorMessage"]
+
+
 def arc_ping(cwd):
     """Sends a ping to the Phabricator server using `conduit.ping` API.
 
     Returns: `True` if no error, otherwise - `False`
     """
-    logger.debug('$ echo "{}" | %s call-conduit conduit.ping' % " ".join(config.arc))
-    p = Popen(
-        config.arc + ["call-conduit", "conduit.ping"],
-        cwd=cwd,
-        stdin=PIPE,
-        stdout=PIPE,
-        stderr=PIPE,
-    )
-    stdout, stderr = p.communicate("{}")
-    logger.debug(stdout)
-    if p.returncode == 0:
-        return True
+    try:
+        arc_call_conduit("conduit.ping", {}, cwd)
+    except ConduitAPIError as err:
+        logger.error(err)
+        return False
+    except CommandError:
+        return False
+    return True
 
-    logger.error(stderr)
-    return False
+
+#
+# "submit" Command
+#
 
 
 def arc_message(template_vars):
@@ -1606,9 +1782,6 @@ def arc_message(template_vars):
     return message
 
 
-#
-# "submit" Command
-#
 def make_blocking(reviewers):
     return ["%s!" % r.rstrip("!") for r in reviewers]
 
@@ -1654,8 +1827,8 @@ def update_commits_from_args(commits, args):
     (The "-r" are loaded into args.reviewer and "-R" into args.blocker):
         a) Recognize `r=` and `r?` from commit message title.
         b) Modify reviewers only if `-r` or `-R` is used in call arguments.
-        c) Add new reviewers using `r=`
-        d) Do not modify the way reviewer is already provided in the title (`r?` or `r=`).
+        c) Add new reviewers using `r=`.
+        d) Do not modify reviewers already provided in the title (`r?` or `r=`).
         e) Delete reviewer if `-r` or `-R` is used and the reviewer is not mentioned.
 
     If no reviewers are provided by args and an `always_blocking` flag is set
@@ -1739,30 +1912,6 @@ def build_api_call_to_update_commit_title_and_summary(commit):
     return {"transactions": transactions, "objectIdentifier": commit["rev-id"]}
 
 
-def parse_api_error(api_response):
-    """Parse the string output from 'arc call-conduit' and return any errors found.
-
-    Args:
-        api_response: stdout string captured from 'arc call-conduit'.  It should
-            contain only valid JSON.
-
-    Returns:
-        A string error description if an error occurred or None if no error occurred.
-    """
-    # Example error response from running
-    # $ echo '{}' | arc call-conduit differential.revision.edit | jq .
-    #
-    # {
-    #   "error": "ERR-CONDUIT-CORE",
-    #   "errorMessage": "ERR-CONDUIT-CORE: Parameter \"transactions\" is not a list "\
-    #       "of transactions.",
-    #   "response": null
-    # }
-    response = json.loads(api_response)
-    if response["error"] and response["errorMessage"]:
-        return response["errorMessage"]
-
-
 def update_phabricator_commit_summary(commit, repo):
     """Send a new commit summary and description to Phabricator.
 
@@ -1789,26 +1938,15 @@ def update_phabricator_commit_summary(commit, repo):
     #   "objectIdentifier": "D8095"
     # }' | arc call-conduit --conduit-uri https://phabricator.services.mozilla.com/ \
     #       --conduit-token <conduit-token> differential.revision.edit
-    logger.debug("Updating revision title and summary in Phabricator")
+    logger.debug("updating revision title and summary in Phabricator")
     api_call_args = build_api_call_to_update_commit_title_and_summary(commit)
-    arc_args = ["call-conduit", "differential.revision.edit"]
-
-    # 'arc call-conduit' only accepts its args from STDIN.
-    with NamedTemporaryFile() as temp_f:
-        json.dump(api_call_args, temp_f)
-        temp_f.flush()
-        temp_f.file.seek(0)
-        logger.debug("Arc stdin: %s", api_call_args)
-        output = arc_out(
-            arc_args, cwd=repo.path, stdin=temp_f, log_output_to_console=False
-        )
-
-    maybe_error = parse_api_error(output)
-    if maybe_error:
+    try:
+        arc_call_conduit("differential.revision.edit", api_call_args, repo.path)
+    except (ConduitAPIError, CommandError) as err:
         logger.warn(
             "Error attempting to update revision summary and title in Phabricator"
         )
-        logger.warn("Error was: %s", maybe_error)
+        logger.warn("Error was: %s", err)
 
 
 def submit(repo, args):
@@ -1826,6 +1964,10 @@ def submit(repo, args):
     # Pre-process to load metadata.
     augment_commits_from_body(commits)
     update_commits_from_args(commits, args)
+
+    # Check if arc is configured
+    if not repo.check_arc():
+        raise Error("Failed to run %s." % config.arc_command)
 
     # Validate commit stack is suitable for review.
     show_commit_stack(repo, commits, show_warnings=True)
@@ -1847,10 +1989,6 @@ def submit(repo, args):
             if len(untracked) <= 5:
                 for filename in untracked:
                     logger.info("  %s" % filename)
-
-    # Check if arc is configured
-    if not repo.check_arc():
-        raise Error("Failed to run %s." % config.arc_command)
 
     # Confirmation prompt.
     if args.yes:
@@ -1934,10 +2072,11 @@ def submit(repo, args):
         if is_update:
             try:
                 update_phabricator_commit_summary(commit, repo)
-            except Exception:
+            except Exception as e:
                 logger.warning(
                     "Warning: failed to update commit summary in Phabricator"
                 )
+                logger.debug(e)
 
         # Append/replace div rev url to/in commit description.
         body = amend_revision_url(commit["body"], revision_url)
@@ -1953,6 +2092,7 @@ def submit(repo, args):
 
     # Cleanup (eg. strip nodes) and refresh to ensure the stack is right for the
     # final showing.
+    repo.finalize(commits)
     repo.cleanup()
     repo.refresh_commit_stack(commits)
 
