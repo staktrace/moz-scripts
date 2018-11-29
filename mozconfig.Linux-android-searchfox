@@ -2,7 +2,7 @@
 mk_add_options AUTOCLOBBER=1
 
 # Build Fennec
-mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android-opt
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-android-debug
 
 # Build Firefox for Android:
 ac_add_options --enable-application=mobile/android
@@ -13,13 +13,14 @@ ac_add_options --with-android-sdk="/home/kats/.mozbuild/android-sdk-linux"
 ac_add_options --with-android-ndk="/home/kats/.mozbuild/android-ndk"
 
 # Build options
+ac_add_options --enable-debug
+ac_add_options --enable-debug-symbols
+ac_add_options --enable-optimize="-Og"
 ac_add_options --disable-elf-hack
-# ac_add_options --enable-warnings-as-errors
-ac_add_options --enable-dump-painting
 ac_add_options --disable-crashreporter
 
-# Use ccache
-ac_add_options --with-ccache
+ac_add_options --enable-clang-plugin
+ac_add_options --enable-mozsearch-plugin
 
 export CC="/home/kats/.mozbuild/clang/bin/clang"
 export CXX="/home/kats/.mozbuild/clang/bin/clang++"
