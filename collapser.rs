@@ -49,8 +49,8 @@ fn collapse(tokensets: &mut Vec<Vec<String>>) {
                     continue;
                 }
                 if let Some(set) = try_collapse(&tokensets[i], &tokensets[j]) {
-                    tokensets[i] = set;
-                    tokensets.remove(j);
+                    tokensets[j] = set;
+                    tokensets.remove(i);
                     changed = true;
                     break 'outer;
                 }
