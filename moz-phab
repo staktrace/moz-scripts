@@ -116,7 +116,7 @@ BUG_ID_RE = re.compile(r"(?:(?:bug|b=)(?:\s*)(\d+)(?=\b))", flags=re.IGNORECASE)
 LIST = r"[;,\/\\]\s*"
 LIST_RE = re.compile(LIST)
 IRC_NICK = (
-    r"[a-zA-Z0-9\-\_!]+"
+    r"#?[a-zA-Z0-9\-\_!]+"
 )  # Note this includes !, which is different from commitparser
 REVIEWERS_RE = (
     r"([\s(.\[;,])(r%s)("
@@ -264,55 +264,23 @@ def read_json_field(files, field_path):
     return None
 
 
-def get_char():
-    try:
-        # POSIX-based systems.
-        import tty
-        import termios
-
-        fd = sys.stdin.fileno()
-        old_term_attrs = None
-        try:
-            old_term_attrs = termios.tcgetattr(fd)
-            tty.setcbreak(fd)
-            return sys.stdin.read(1)
-        except termios.error:
-            # Fallback on readline() if we failed to put the terminal into raw mode.
-            ch = sys.stdin.readline().strip()
-            return "\n" if ch == "" else ch[0]
-        finally:
-            if old_term_attrs:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_term_attrs)
-    except ImportError:
-        # Windows-based systems.
-        import msvcrt
-
-        return msvcrt.getch()
-
-
 def prompt(question, options):
     if HAS_ANSI:
         question = "\033[33m%s\033[0m" % question
-    options[0] = options[0].upper()
-    sys.stdout.write("%s (%s)? " % (question, "/".join(options)))
-    sys.stdout.flush()
+    prompt_options = list(options)
+    prompt_options[0] = prompt_options[0].upper()
+    prompt_str = "%s (%s)? " % (question, "/".join(prompt_options))
 
-    res = ""
-    default = options[0][0].lower()
-    options = {o[0].lower(): o for o in options}
-    while res not in options:
-        res = get_char().lower()
-        if res in (chr(10), chr(13)):  # return
-            res = default
-        elif res == chr(3) or res == chr(27):  # ^C, escape
-            sys.stdout.write("^C\n")
-            sys.stdout.flush()
+    options_map = {o[0].lower(): o for o in options}
+    options_map[""] = options[0]
+    while True:
+        res = raw_input(prompt_str)
+        if len(res) > 1:
+            res = res[0].lower()
+        if res == chr(27):  # escape
             sys.exit(1)
-        if res in options:
-            sys.stdout.write("%s\n" % options[res])
-            sys.stdout.flush()
-
-    return options[res]
+        if res in options_map:
+            return options_map[res]
 
 
 def parse_config(config_list, filter_func=None):
@@ -344,9 +312,12 @@ def parse_config(config_list, filter_func=None):
     return result
 
 
-def normalise_reviewer(reviewer):
+def normalise_reviewer(reviewer, strip_group=True):
     """This provide a canonical form of the reviewer for comparison."""
-    return reviewer.lstrip("#").rstrip("!").lower()
+    reviewer = reviewer.rstrip("!").lower()
+    if strip_group:
+        reviewer = reviewer.lstrip("#")
+    return reviewer
 
 
 class NamedTemporaryFile(object):
@@ -489,6 +460,16 @@ class Config(object):
 #
 
 
+def find_repo_root(path):
+    """Lightweight check for a repo in/under the specified path."""
+    path = os.path.abspath(path)
+    while os.path.split(path)[1]:
+        if Mercurial.is_repo(path) or Git.is_repo(path):
+            return path
+        path = os.path.abspath(os.path.join(path, os.path.pardir))
+    return None
+
+
 def probe_repo(path):
     try:
         return Mercurial(path)
@@ -516,10 +497,9 @@ def repo_from_args(args):
 
     else:
         # Walk parents to find repository root.
-        path = os.path.abspath(os.getcwd())
-        while not repo and os.path.split(path)[1]:
+        path = find_repo_root(os.getcwd())
+        if path:
             repo = probe_repo(path)
-            path = os.path.abspath(os.path.join(path, os.path.pardir))
         if not repo:
             raise Error(
                 "Not a repository (or any of the parent directories): .hg / .git"
@@ -755,6 +735,11 @@ class Mercurial(Repository):
 
         # Disable the user's hgrc file, to ensure we run without rogue extensions.
         os.environ["HGRCPATH"] = ""
+
+    @classmethod
+    def is_repo(cls, path):
+        """Quick check for repository at specified path."""
+        return os.path.exists(os.path.join(path, ".hg"))
 
     @staticmethod
     def _get_extension(extension, hg_config):
@@ -1137,6 +1122,11 @@ class Git(Repository):
                 "You need to run the *git checkout <branch-name>* command."
             )
 
+    @classmethod
+    def is_repo(cls, path):
+        """Quick check for repository at specified path."""
+        return os.path.exists(os.path.join(path, ".git"))
+
     def git(self, command, **kwargs):
         """Call git from the repository path."""
         check_call(self._git + command, cwd=self.path, env=self._env, **kwargs)
@@ -1297,6 +1287,7 @@ class Git(Repository):
             b18312ffe929d3482f1d7b1e9716a1885c7a61b8
             5f161c70fef9e59d1966bab693a0a68a9336af80
             Update code references
+
             Fixes:
             $ moz-phab self-update
             > Failed to download update: HTTP Error 404: Not Found
@@ -1308,7 +1299,7 @@ class Git(Repository):
                 "--reverse",
                 "--ancestry-path",
                 "--quiet",
-                "--format=%p%n%T%n%H%n%s%n%b{}".format(boundary),
+                "--format=%p%n%T%n%H%n%s%n%n%b{}".format(boundary),
                 "{}..{}".format(start, end),
             ],
             split=False,
@@ -1346,6 +1337,7 @@ class Git(Repository):
 
         commits = []
         rev_list = None
+        first_node = None
         for log_line in self._get_commits_info(*self.revset):
             if not log_line:
                 continue
@@ -1436,7 +1428,7 @@ class Git(Repository):
             commit: Information about the commit to be amended
             commits: List of commits within the stack
         """
-        updated_body = "%s\n\n%s" % (commit["title"], commit["body"])
+        updated_body = "%s\n%s" % (commit["title"], commit["body"])
 
         current_body = self.git_out(
             ["show", "-s", "--format=%s%n%b", commit["node"]], split=False
@@ -1451,7 +1443,6 @@ class Git(Repository):
         )
 
         # Update commit info
-        old_parent_sha = commit["node"]
         commit["node"] = new_parent_sha
         # Update parent for all the children of the `commit` within the stack
         has_children = False
@@ -1467,7 +1458,6 @@ class Git(Repository):
             new_parent_sha = self._commit_tree(
                 new_parent_sha, c["tree-hash"], "%s\n%s" % (c["title"], c["body"])
             )
-            old_parent_sha = c["node"]
             c["node"] = new_parent_sha
 
     def rebase_commit(self, source_commit, dest_commit):
@@ -1629,8 +1619,19 @@ def replace_reviewers(commit_description, reviewers):
 
 def show_commit_stack(repo, commits, show_rev_urls=False, show_warnings=False):
     """Log the commit stack in a human readable form."""
+
+    # keep output in columns by sizing the action column to the longest rev + 1 ("D")
+    max_len = (
+        max(len(c.get("rev-id", "") or "") for c in commits) + 1 if commits else ""
+    )
+    action_template = "(%" + str(max_len) + "s)"
+
     for commit in reversed(commits):
-        logger.info("%s %s" % (commit["name"], commit["title-preview"]))
+        if commit.get("rev-id"):
+            action = action_template % ("D" + commit["rev-id"])
+        else:
+            action = action_template % "New"
+        logger.info("%s %s %s" % (action, commit["name"], commit["title-preview"]))
         if show_warnings:
             if commit["bug-id-orig"] and commit["bug-id"] != commit["bug-id-orig"]:
                 logger.warning(
@@ -1655,14 +1656,59 @@ def check_for_invalid_reviewers(reviewers, cwd):
 
     # Combine the lists of requested reviewers and granted reviewers.
     all_reviewers = []
+    found_names = []
     for sublist in reviewers.values():
-        all_reviewers.extend([r.rstrip("!") for r in sublist])
+        all_reviewers.extend(
+            [
+                normalise_reviewer(r, strip_group=False)
+                for r in sublist
+                if not r.startswith("#")
+            ]
+        )
 
-    # See https://phabricator.services.mozilla.com/api/user.search
-    api_call_args = {"queryKey": "active", "constraints": {"usernames": all_reviewers}}
-    result = arc_call_conduit("user.search", api_call_args, cwd)
-    found_names = [data["fields"]["username"] for data in result["data"]]
+    if all_reviewers:
+        # See https://phabricator.services.mozilla.com/api/user.search
+        api_call_args = {
+            "queryKey": "active",
+            "constraints": {"usernames": all_reviewers},
+        }
+        result = arc_call_conduit("user.search", api_call_args, cwd)
+        found_names = [
+            normalise_reviewer(data["fields"]["username"], strip_group=False)
+            for data in result["data"]
+        ]
 
+    # Group reviewers are represented by a "#" prefix
+    all_groups = []
+    found_groups = []
+    for sublist in reviewers.values():
+        all_groups.extend(
+            [
+                normalise_reviewer(r, strip_group=False)
+                for r in sublist
+                if r.startswith("#")
+            ]
+        )
+
+    if all_groups:
+        # See https://phabricator.services.mozilla.com/api/user.search
+        api_call_args = {"queryKey": "active", "constraints": {"slugs": all_groups}}
+        result = arc_call_conduit("project.search", api_call_args, cwd)
+        found_groups = [
+            "#%s" % normalise_reviewer(data["fields"]["slug"])
+            for data in result["data"]
+        ]
+        # We might be searching by the hashtag.
+        if "maps" in result and "slugMap" in result["maps"]:
+            found_groups.extend(
+                [
+                    "#%s" % normalise_reviewer(r)
+                    for r in result["maps"]["slugMap"].keys()
+                ]
+            )
+
+    all_reviewers.extend(all_groups)
+    found_names.extend(found_groups)
     return list(set(all_reviewers) - set(found_names))
 
 
@@ -1983,7 +2029,7 @@ def submit(repo, args):
         untracked = repo.untracked()
         if untracked:
             logger.warning(
-                "Warning: found %s untracked file%s:"
+                "Warning: found %s untracked file%s (will not be submitted for review):"
                 % (len(untracked), "" if len(untracked) == 1 else "s")
             )
             if len(untracked) <= 5:
@@ -2031,7 +2077,7 @@ def submit(repo, args):
             ),
             bug_id=commit["bug-id"],
         )
-        if previous_commit:
+        if previous_commit and not args.no_stack:
             template_vars["depends_on"] = "Depends on D%s" % previous_commit["rev-id"]
         message = arc_message(template_vars)
 
@@ -2048,6 +2094,8 @@ def submit(repo, args):
             )
             if args.nolint:
                 arc_args.append("--nolint")
+            if args.wip:
+                arc_args.append("--plan-changes")
             if is_update:
                 arc_args.extend(
                     ["--message", "Revision updated."] + ["--update", commit["rev-id"]]
@@ -2285,6 +2333,17 @@ def parse_args(argv):
         help="Do not run lint (default: lint changed files if configured)",
     )
     submit_parser.add_argument(
+        "--wip",
+        "--plan-changes",
+        action="store_true",
+        help="Create or update a revision without requesting a code review",
+    )
+    submit_parser.add_argument(
+        "--no-stack",
+        action="store_true",
+        help="Submit multiple commits, but do not mark them as dependant",
+    )
+    submit_parser.add_argument(
         "--upstream",
         "--upstream",
         "-u",
@@ -2316,6 +2375,15 @@ def parse_args(argv):
         "--force", "-f", action="store_true", help="Force update even if not necessary"
     )
     update_parser.set_defaults(func=self_update, needs_repo=False)
+
+    # if we're called without a command and from within a repository, default to submit.
+    if not argv or (
+        not (set(argv) & {"-h", "--help"})
+        and argv[0] not in ["submit", "self-update"]
+        and find_repo_root(os.getcwd())
+    ):
+        logger.debug("defaulting to `submit`")
+        argv.insert(0, "submit")
 
     return parser.parse_args(argv)
 
