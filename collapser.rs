@@ -14,6 +14,10 @@ fn flip(token: &str) -> String {
         "(processor == \"x86_64\")".to_string()
     } else if token == "(processor == \"x86_64\")" {
         "(processor == \"x86\")".to_string()
+    } else if token == "(version == \"6.1.7601\")" {
+        "(version == \"10.0.15063\")".to_string()
+    } else if token == "(version == \"10.0.15063\")" {
+        "(version == \"6.1.7601\")".to_string()
     } else if token.find("not ") == Some(0) {
         token[4..].to_string()
     } else {
