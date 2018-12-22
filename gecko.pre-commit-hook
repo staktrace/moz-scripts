@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+DIFF=$(git diff --no-color -U0 --cached $(git rev-parse --show-toplevel)/**/*.{c,cpp,h,hpp} | $HOME/.mozbuild/clang-tools/clang-tidy/share/clang/clang-format-diff.py -p1 -binary=$HOME/.mozbuild/clang-tools/clang-tidy/bin/clang-format)
+LINES=$(echo ${DIFF} | wc -l)
+if [ $LINES -gt 1 ]; then
+    echo ${DIFF} | git apply --cached -p0
+fi
