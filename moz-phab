@@ -33,6 +33,7 @@ import time
 import traceback
 import urllib2
 import uuid
+from contextlib import contextmanager
 from distutils.version import LooseVersion
 
 # Known Issues
@@ -202,7 +203,10 @@ def check_call_by_line(command, cwd=None, never_log=False):
     # similar to check_call, yields for line-by-line processing
     logger.debug("$ %s" % " ".join(shell_quote(s) for s in command))
 
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, cwd=cwd)
+    # Connecting the STDIN to the PIPE will make arc throw an exception on reading user input
+    process = subprocess.Popen(
+        command, stdout=subprocess.PIPE, stdin=subprocess.PIPE, cwd=cwd
+    )
     try:
         for line in iter(process.stdout.readline, ""):
             line = line.rstrip()
@@ -320,46 +324,16 @@ def normalise_reviewer(reviewer, strip_group=True):
     return reviewer
 
 
-class NamedTemporaryFile(object):
-    """
-    Like tempfile.NamedTemporaryFile except it works on Windows
-    in the case where you open the created file a second time.
-
-    From mozilla-central:testing/mozbase/mozfile/mozfile/mozfile.py with
-    slight modifications.
-    """
-
-    def __init__(self):
-        fd, path = tempfile.mkstemp()
-        os.close(fd)
-
-        self.file = open(path, "w+b")
-        self._path = path
-        self._delete = True
-        self._unlinked = False
-
-    def __getattr__(self, k):
-        return getattr(self.__dict__["file"], k)
-
-    def __iter__(self):
-        return self.__dict__["file"]
-
-    def __enter__(self):
-        self.file.__enter__()
-        return self
-
-    def __exit__(self, exc, value, tb):
-        self.file.__exit__(exc, value, tb)
-        if self.__dict__["_delete"]:
-            os.unlink(self.__dict__["_path"])
-            self._unlinked = True
-
-    def __del__(self):
-        if self.__dict__["_unlinked"]:
-            return
-        self.file.__exit__(None, None, None)
-        if self.__dict__["_delete"]:
-            os.unlink(self.__dict__["_path"])
+@contextmanager
+def temporary_file(content):
+    f = tempfile.NamedTemporaryFile(delete=False)
+    try:
+        f.write(content)
+        f.flush()
+        f.close()
+        yield f.name
+    finally:
+        os.remove(f.name)
 
 
 class Error(Exception):
@@ -588,6 +562,7 @@ class Repository(object):
     def check_commits_for_submit(self, commits):
         """Validate the list of commits (from commit_stack) are ok to submit"""
         errors = []
+        warnings = []
 
         # Extract a set of reviewers and verify first; they will be displayed
         # with other commit errors.
@@ -610,11 +585,15 @@ class Repository(object):
 
         # Verify all reviewers in a single call
         for invalid_reviewer in check_for_invalid_reviewers(all_reviewers, self.path):
-            for node in reviewer_commit_map[normalise_reviewer(invalid_reviewer)]:
+            for node in reviewer_commit_map[
+                normalise_reviewer(invalid_reviewer["name"])
+            ]:
                 commit_invalid_reviewers[node].append(invalid_reviewer)
 
+        unavailable_reviewers_warning = False
         for commit in commits:
             commit_errors = []
+            commit_warnings = []
             # TODO allow NOBUG in commit message (not in arg)
             # TODO be more relaxed if we're updating an existing rev?
             if not commit["bug-id"]:
@@ -624,7 +603,20 @@ class Repository(object):
                 commit_errors.append("contains arc fields")
 
             for reviewer in commit_invalid_reviewers[commit["node"]]:
-                commit_errors.append("%s is not a valid reviewer's name" % reviewer)
+                if "until" in reviewer:
+                    unavailable_reviewers_warning = True
+                    msg = "%s is not available until %s" % (
+                        reviewer["name"],
+                        reviewer["until"],
+                    )
+                    if self.args.force:
+                        commit_warnings.append(msg)
+                    else:
+                        commit_errors.append(msg)
+                else:
+                    commit_errors.append(
+                        "%s is not a valid reviewer's name" % reviewer["name"]
+                    )
 
             if commit_errors:
                 errors.append(
@@ -632,8 +624,23 @@ class Repository(object):
                     % (commit["name"], commit["title"], "\n- ".join(commit_errors))
                 )
 
+            if commit_warnings:
+                warnings.append(
+                    "%s %s\n- %s"
+                    % (commit["name"], commit["title"], "\n- ".join(commit_warnings))
+                )
+
         if errors:
             raise Error("\n\n".join(errors))
+
+        if warnings:
+            logger.warning("\n\n".join(warnings))
+
+        if unavailable_reviewers_warning:
+            logger.warning(
+                "\nYou're forcing unavailable reviewer(s).\nIf stuck, please read the "
+                "discussion under https://bugzilla.mozilla.org/show_bug.cgi?id=1499205"
+            )
 
     def check_arc(self):
         """Check if arc can communicate with Phabricator."""
@@ -862,14 +869,23 @@ class Mercurial(Repository):
         )[: -len(boundary)]
 
         commits = []
+        nodes = []
+        branching_children = []
         for log_line in hg_log.split(boundary):
             rev, node, desc = log_line.split(" ", 2)
             desc = desc.splitlines()
+
+            children = self.hg_log("children(%s)" % node)
+
+            if len(children) > 1 and not self.use_evolve:
+                branching_children.extend(children)
 
             commits.append(
                 {
                     "name": "%s:%s" % (rev, node[:12]),
                     "node": node,
+                    "orig-node": node,
+                    "children": children,
                     "title": desc[0],
                     "title-preview": desc[0],
                     "body": "\n".join(desc[1:]).rstrip(),
@@ -878,6 +894,19 @@ class Mercurial(Repository):
                     "rev-id": None,
                 }
             )
+            nodes.append(node)
+
+        if branching_children:
+            will_be_deleted = [c[:12] for c in branching_children if c not in nodes]
+            msg = "following commits will be DELETED:\n%s" % will_be_deleted
+            if not self.args.force_delete:
+                raise Error(
+                    "DAG branch point detected. Please install the evolve extension.\n"
+                    "(https://www.mercurial-scm.org/doc/evolution/)\n"
+                    "If you continue with `--force-delete` the %s" % msg
+                )
+            else:
+                logger.warning("`--force-delete` used. The %s" % msg)
 
         return commits
 
@@ -885,12 +914,22 @@ class Mercurial(Repository):
         self.hg(["update", "--quiet", node])
 
     def _amend_commit_body(self, node, body):
-        with NamedTemporaryFile() as temp_f:
-            temp_f.write(body)
-            temp_f.flush()
-
+        with temporary_file(body) as body_file:
             self.checkout(node)
-            self.hg(["commit", "--amend", "--logfile", temp_f.name])
+            self.hg(["commit", "--amend", "--logfile", body_file])
+
+    def _get_parent(self, node):
+        return self.hg_out(
+            ["log", "-T", "{node}", "-r", "parents(%s)" % node], split=False
+        )
+
+    @staticmethod
+    def _find_forks_to_rebase(commit, original_nodes):
+        """Returns a list of split commits to rebase."""
+        if commit["node"] == commit["orig-node"]:
+            return []
+
+        return [ch for ch in commit["children"] if ch not in original_nodes]
 
     def finalize(self, commits):
         """Rebase stack children commits if needed."""
@@ -899,13 +938,19 @@ class Mercurial(Repository):
         if not self.use_evolve:
             return
 
+        original_nodes = [c["orig-node"] for c in commits]
         parent = None
         for commit in commits:
-            if parent:
+            commit_parent = self._get_parent(commit["node"])
+            if parent and parent["node"] not in commit_parent:
                 self.rebase_commit(commit, parent)
                 (rev, node) = self._get_successor(commit["node"])
                 if rev and node:
                     self._refresh_commit(commit, node, rev)
+
+            for fork in self._find_forks_to_rebase(commit, original_nodes):
+                self.rebase_commit(dict(node=fork), commit)
+
             parent = commit
 
     def amend_commit(self, commit, commits):
@@ -1131,10 +1176,13 @@ class Git(Repository):
         """Call git from the repository path."""
         check_call(self._git + command, cwd=self.path, env=self._env, **kwargs)
 
-    def git_out(self, command, path=None, **kwargs):
+    def git_out(self, command, path=None, extra_env=None, **kwargs):
         """Call git from the repository path and return the result."""
+        env = dict(self._env)
+        if extra_env:
+            env.update(extra_env)
         return check_output(
-            self._git + command, cwd=path or self.path, env=self._env, **kwargs
+            self._git + command, cwd=path or self.path, env=env, **kwargs
         )
 
     def cleanup(self):
@@ -1240,10 +1288,8 @@ class Git(Repository):
         if start is None:
             return None
 
-        # We want full, inclusive range of commits.
-        # If the user provided a commit SHA1, its parent needs to be passed to the log.
-        if self._revparse(start).startswith(start):
-            # start is a hash - we need to use its parent
+        # We want inclusive range of commits if start commit is detected
+        if self.args.start_rev == "(auto)":
             start = "%s^" % start
 
         self.revset = (start, self.args.end_rev)
@@ -1283,6 +1329,9 @@ class Git(Repository):
 
         Returns a list of strings
         An example of a list item:
+            Tue, 22 Jan 2019 13:42:48 +0000
+            Conduit User
+            conduit@mozilla.bugs
             4912923
             b18312ffe929d3482f1d7b1e9716a1885c7a61b8
             5f161c70fef9e59d1966bab693a0a68a9336af80
@@ -1299,7 +1348,7 @@ class Git(Repository):
                 "--reverse",
                 "--ancestry-path",
                 "--quiet",
-                "--format=%p%n%T%n%H%n%s%n%n%b{}".format(boundary),
+                "--format=%aD%n%an%n%ae%n%p%n%T%n%H%n%s%n%n%b{}".format(boundary),
                 "{}..{}".format(start, end),
             ],
             split=False,
@@ -1342,7 +1391,15 @@ class Git(Repository):
             if not log_line:
                 continue
 
-            parents, tree_hash, node, desc = log_line.split("\n", 3)
+            (
+                author_date,
+                author_name,
+                author_email,
+                parents,
+                tree_hash,
+                node,
+                desc,
+            ) = log_line.split("\n", 6)
             desc = desc.splitlines()
 
             # Check if the commit is a child of the first one
@@ -1377,6 +1434,9 @@ class Git(Repository):
                     "rev-id": None,
                     "parent": parents[0],
                     "tree-hash": tree_hash,
+                    "author-date": author_date,
+                    "author-name": author_name,
+                    "author-email": author_email,
                 }
             )
 
@@ -1398,7 +1458,9 @@ class Git(Repository):
         """Return the SHA1 of given branch."""
         return self.git_out(["rev-parse", branch], split=False)
 
-    def _commit_tree(self, parent, tree_hash, message):
+    def _commit_tree(
+        self, parent, tree_hash, message, author_name, author_email, author_date
+    ):
         """Prepare and run `commit-tree` command.
 
         Creates a new commit for the tree_hash.
@@ -1410,11 +1472,15 @@ class Git(Repository):
         Returns:
             str: SHA1 of the new commit.
         """
-        with NamedTemporaryFile() as temp_f:
-            temp_f.write(message)
-            temp_f.flush()
+        with temporary_file(message) as message_file:
             return self.git_out(
-                ["commit-tree", "-p", parent, "-F", temp_f.name, tree_hash], split=False
+                ["commit-tree", "-p", parent, "-F", message_file, tree_hash],
+                split=False,
+                extra_env={
+                    "GIT_AUTHOR_NAME": author_name,
+                    "GIT_AUTHOR_EMAIL": author_email,
+                    "GIT_AUTHOR_DATE": author_date,
+                },
             )
 
     def amend_commit(self, commit, commits):
@@ -1439,7 +1505,12 @@ class Git(Repository):
 
         # Create a new commit with the updated body.
         new_parent_sha = self._commit_tree(
-            commit["parent"], commit["tree-hash"], updated_body
+            commit["parent"],
+            commit["tree-hash"],
+            updated_body,
+            commit["author-name"],
+            commit["author-email"],
+            commit["author-date"],
         )
 
         # Update commit info
@@ -1456,7 +1527,12 @@ class Git(Repository):
             # Update parent information and create a new commit
             c["parent"] = new_parent_sha
             new_parent_sha = self._commit_tree(
-                new_parent_sha, c["tree-hash"], "%s\n%s" % (c["title"], c["body"])
+                new_parent_sha,
+                c["tree-hash"],
+                "%s\n%s" % (c["title"], c["body"]),
+                c["author-name"],
+                c["author-email"],
+                c["author-date"],
             )
             c["node"] = new_parent_sha
 
@@ -1666,16 +1742,15 @@ def check_for_invalid_reviewers(reviewers, cwd):
             ]
         )
 
+    users = []
     if all_reviewers:
-        # See https://phabricator.services.mozilla.com/api/user.search
-        api_call_args = {
-            "queryKey": "active",
-            "constraints": {"usernames": all_reviewers},
-        }
-        result = arc_call_conduit("user.search", api_call_args, cwd)
+        # We're using the deprecated user.query API as the user.search does not
+        # provide the user availability information.
+        # See https://phabricator.services.mozilla.com/conduit/method/user.query/
+        api_call_args = {"usernames": all_reviewers}
+        users = arc_call_conduit("user.query", api_call_args, cwd)
         found_names = [
-            normalise_reviewer(data["fields"]["username"], strip_group=False)
-            for data in result["data"]
+            normalise_reviewer(data["userName"], strip_group=False) for data in users
         ]
 
     # Group reviewers are represented by a "#" prefix
@@ -1691,7 +1766,7 @@ def check_for_invalid_reviewers(reviewers, cwd):
         )
 
     if all_groups:
-        # See https://phabricator.services.mozilla.com/api/user.search
+        # See https://phabricator.services.mozilla.com/conduit/method/project.search/
         api_call_args = {"queryKey": "active", "constraints": {"slugs": all_groups}}
         result = arc_call_conduit("project.search", api_call_args, cwd)
         found_groups = [
@@ -1709,7 +1784,21 @@ def check_for_invalid_reviewers(reviewers, cwd):
 
     all_reviewers.extend(all_groups)
     found_names.extend(found_groups)
-    return list(set(all_reviewers) - set(found_names))
+    invalid_reviewers = list(set(all_reviewers) - set(found_names))
+
+    # Find users availability:
+    unavailable_reviewers = [
+        dict(
+            name=r["userName"],
+            until=datetime.datetime.fromtimestamp(r["currentStatusUntil"]).strftime(
+                "%Y-%m-%d %H:%M"
+            ),
+        )
+        for r in users
+        if r.get("currentStatus") == "away"
+    ]
+
+    return unavailable_reviewers + [dict(name=r) for r in invalid_reviewers]
 
 
 #
@@ -1750,12 +1839,12 @@ def arc_call_conduit(api_method, api_call_args, cwd):
     """
     arc_args = ["call-conduit", api_method]
     # 'arc call-conduit' only accepts its args from STDIN.
-    with NamedTemporaryFile() as temp_f:
-        json.dump(api_call_args, temp_f)
-        temp_f.flush()
-        temp_f.file.seek(0)
+    with temporary_file(json.dumps(api_call_args)) as args_file:
         logger.debug("Arc stdin: %s", api_call_args)
-        output = arc_out(arc_args, cwd=cwd, stdin=temp_f, log_output_to_console=False)
+        with open(args_file, "rb") as temp_f:
+            output = arc_out(
+                arc_args, cwd=cwd, stdin=temp_f, log_output_to_console=False
+            )
 
     # We expect arc output to be a JSON. However, in DEBUG mode, a `--trace` is used and
     # the reponse becomes a multiline string with some messages in plain text.
@@ -2082,15 +2171,12 @@ def submit(repo, args):
         message = arc_message(template_vars)
 
         # Run arc.
-        with NamedTemporaryFile() as temp_f:
-            temp_f.write(message)
-            temp_f.flush()
-
+        with temporary_file(message) as message_file:
             arc_args = (
                 ["diff"]
                 + ["--base", "arc:this"]
                 + ["--allow-untracked", "--no-amend", "--no-ansi"]
-                + ["--message-file", temp_f.name]
+                + ["--message-file", message_file]
             )
             if args.nolint:
                 arc_args.append("--nolint")
@@ -2187,9 +2273,23 @@ def get_self_release():
 
 def update_arc():
     """Write the las check and update arc."""
-    config.arc_last_check = int(time.time())
-    config.write()
-    check_call(config.arc + ["upgrade"])
+    try:
+        check_call(config.arc + ["upgrade"])
+    except subprocess.CalledProcessError:
+        logger.warning(
+            "arc failed to upgrade, which may be caused by using an arcanist "
+            "package from\nyour system package manager."
+        )
+        result = prompt(
+            "Would you like to skip arc upgrades in the future?", ["Yes", "No"]
+        )
+
+        if result == "YES":
+            config.arc_last_check = -1
+            config.write()
+    else:
+        config.arc_last_check = int(time.time())
+        config.write()
 
 
 def check_for_updates():
@@ -2203,7 +2303,11 @@ def check_for_updates():
         config.self_last_check = int(time.time())
         config.write()
 
-        release = get_self_release()
+        try:
+            release = get_self_release()
+        except Error as e:
+            logger.warning(e.message)
+            return
 
         if release["update_required"]:
             logger.warning("Version %s of `moz-phab` is now available" % release["tag"])
@@ -2308,6 +2412,12 @@ def parse_args(argv):
         "-f",
         action="store_true",
         help="Override sanity checks and force submission; a tool of last resort",
+    )
+    submit_parser.add_argument(
+        "--force-delete",
+        action="store_true",
+        help="Mercurial only. Override the fail if a DAG branch point detected "
+             "and no evolve installed",
     )
     submit_parser.add_argument(
         "--bug", "-b", help="Set Bug ID for all commits (default: from commit)"
