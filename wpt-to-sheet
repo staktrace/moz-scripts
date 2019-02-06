@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 # Run this while your $PWD is the root of your mozilla-central tree
+# This assumes the tree has been supercollapsed (see github.com/staktrace/supercollapser)
 
 SEARCH=${1:-"webrender"}
 
 find testing/web-platform/meta -name "*.ini" -type f |
 sort |
 while read file; do
-    awk "/$SEARCH/ { print \"$file,\" \$0 }" <(collapser $file)
+    cat $file | awk "/$SEARCH/ { print \"$file,\" \$0 }"
 done
