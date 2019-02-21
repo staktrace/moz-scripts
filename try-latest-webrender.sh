@@ -1,1 +1,0 @@
-../wrupdater/try-latest-webrender.sh
