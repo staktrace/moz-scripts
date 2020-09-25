@@ -6,5 +6,6 @@ mk_add_options AUTOCLOBBER=1
 ac_add_options --enable-ccache
 ac_add_options --disable-crashreporter
 ac_add_options --enable-dump-painting
+ac_add_options --with-macos-sdk=$HOME/zspace/MacOSX-SDKs/MacOSX10.11.sdk
 
 export RUSTC_OPT_LEVEL=3
