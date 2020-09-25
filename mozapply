@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+moz-phab patch --apply-to here --no-branch --skip-dependencies $*
